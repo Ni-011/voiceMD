@@ -1,0 +1,1 @@
+ALTER TABLE "patients" ADD COLUMN "doctorId" varchar(255) NOT NULL;
