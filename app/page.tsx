@@ -1,272 +1,285 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
 
-export default function Home() {
-  const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [notification, setNotification] = useState({ message: "", type: "" });
-  const [isLoading, setIsLoading] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+import { useState } from "react";
+import { Plus, Search, Mic, Bell } from "lucide-react";
 
-  useEffect(() => {
-    if ("webkitSpeechRecognition" in window) {
-      let recognition = new window.webkitSpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      recognition.lang = "en-US";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { AddPatientModal } from "@/components/add-patient-modal";
+import { PatientsTable } from "@/components/patients-table";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
-        let finalTranscript = "";
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
-        }
-        setTranscript((prev) => prev + finalTranscript);
-      };
+// Sample patient data
+const initialPatients = [
+  {
+    id: "1",
+    name: "Rahul Sharma",
+    age: 45,
+    gender: "Male",
+    condition: "Hypertension",
+    lastVisit: "2023-11-15",
+  },
+  {
+    id: "2",
+    name: "Priya Patel",
+    age: 32,
+    gender: "Female",
+    condition: "Diabetes Type 2",
+    lastVisit: "2023-12-01",
+  },
+  {
+    id: "3",
+    name: "Amit Singh",
+    age: 28,
+    gender: "Male",
+    condition: "Asthma",
+    lastVisit: "2023-12-10",
+  },
+  {
+    id: "4",
+    name: "Neha Gupta",
+    age: 41,
+    gender: "Female",
+    condition: "Arthritis",
+    lastVisit: "2023-12-05",
+  },
+  {
+    id: "5",
+    name: "Vikram Malhotra",
+    age: 52,
+    gender: "Male",
+    condition: "Coronary Artery Disease",
+    lastVisit: "2023-11-28",
+  },
+];
 
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        showNotification("Error occurred during speech recognition.", "error");
-      };
+export default function Dashboard() {
+  const [patients, setPatients] = useState(initialPatients);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-      recognition.onend = () => {
-        setIsRecording(false);
-      };
-      recognitionRef.current = recognition;
-    } else {
-      alert("Speech recognition is not supported in this browser.");
-    }
-  }, []);
-
-  const showNotification = (message: string, type: string) => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification({ message: "", type: "" }), 5000);
+  const addPatient = (patient: any) => {
+    setPatients([
+      ...patients,
+      { ...patient, id: (patients.length + 1).toString() },
+    ]);
   };
 
-  const startRecording = () => {
-    if (recognitionRef.current && !isRecording) {
-      setTranscript("");
-      recognitionRef.current.start();
-      setIsRecording(true);
-      showNotification("Recording started", "info");
-    }
-  };
-
-  const stopRecording = () => {
-    if (recognitionRef.current && isRecording) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
-      showNotification("Recording stopped", "info");
-    }
-  };
-
-  const sendRecording = async (
-    endpoint: string,
-    body: any,
-    destination: string
-  ) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!response.ok)
-        throw new Error(`HTTP error! status: ${response.status}`);
-      await response.json();
-      showNotification(`Successfully sent to ${destination}`, "success");
-    } catch (error) {
-      showNotification(`Failed to send to ${destination}`, "error");
-    } finally {
-      setIsLoading(false);
-      stopRecording();
-    }
-  };
+  const filteredPatients = patients.filter(
+    (patient) =>
+      patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      patient.condition.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white p-5">
-      <div className="w-full max-w-2xl p-8 bg-gray-800 bg-opacity-70 rounded-xl shadow-2xl backdrop-blur-lg border border-gray-700">
-        {/* Header */}
-        <div className="mb-10 text-center">
-          <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-            Medical Voice Notes
-          </h1>
-          <p className="mt-2 text-gray-400">
-            Transcribe and save voice notes efficiently
-          </p>
-        </div>
-
-        {/* Status Indicator */}
-        <div className="flex justify-center mb-6">
-          <div className="flex items-center px-4 py-2 rounded-full bg-gray-900 shadow-inner border border-gray-700">
-            <span
-              className={`h-3 w-3 rounded-full mr-2 ${
-                isRecording ? "bg-red-500 animate-pulse" : "bg-gray-600"
-              }`}
-            ></span>
-            <span className="text-sm font-medium text-gray-300">
-              {isRecording ? "Recording in progress..." : "Ready to record"}
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      {/* Header */}
+      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex h-14 sm:h-16 items-center justify-between py-2 sm:py-4">
+          <a href="/" className="flex items-center gap-2 cursor-pointer">
+            <div className="relative size-8 sm:size-10 overflow-hidden rounded-full bg-black">
+              <Mic className="absolute left-1/2 top-1/2 h-4 w-4 sm:h-5 sm:w-5 -translate-x-1/2 -translate-y-1/2 text-primary-foreground" />
+            </div>
+            <span className="text-xl sm:text-2xl font-semibold tracking-tight">
+              VoiceMD
             </span>
+          </a>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative h-8 w-8 sm:h-10 sm:w-10 bg-white text-black hover:bg-gray-100 cursor-pointer"
+            >
+              <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-red-500 text-[8px] sm:text-[10px] text-white">
+                3
+              </span>
+            </Button>
+            <Avatar className="h-8 w-8 sm:h-10 sm:w-10 cursor-pointer">
+              <AvatarImage src="/placeholder-user.jpg" alt="Dr. Smith" />
+              <AvatarFallback>DS</AvatarFallback>
+            </Avatar>
           </div>
         </div>
+      </header>
 
-        {/* Recording Controls */}
-        <div className="flex justify-center gap-4 mb-8">
-          <button
-            className={`px-6 py-3 rounded-lg font-medium transition-all hover:cursor-pointer duration-300 flex items-center justify-center w-36 ${
-              isRecording
-                ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700 active:scale-95 text-white shadow-lg"
-            }`}
-            onClick={startRecording}
-            disabled={isRecording}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 mr-2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z"
-                clipRule="evenodd"
-              />
-            </svg>
-            Start
-          </button>
-          <button
-            className={`px-6 py-3 rounded-lg font-medium hover:cursor-pointer transition-all duration-300 flex items-center justify-center w-36 ${
-              !isRecording
-                ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                : "bg-red-600 hover:bg-red-700 active:scale-95 text-white shadow-lg"
-            }`}
-            onClick={stopRecording}
-            disabled={!isRecording}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 mr-2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z"
-                clipRule="evenodd"
-              />
-            </svg>
-            Stop
-          </button>
-        </div>
-
-        {/* Transcript Display */}
-        <div className="mb-8">
-          <h2 className="text-sm uppercase tracking-wide text-gray-400 mb-2 flex items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 mr-1"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
-                clipRule="evenodd"
-              />
-            </svg>
-            Transcript
-          </h2>
-          <div className="bg-gray-900 rounded-lg p-4 shadow-inner min-h-32 max-h-60 overflow-y-auto border border-gray-700">
-            <p className="font-mono text-gray-300 whitespace-pre-wrap">
-              {transcript || "Your transcribed text will appear here..."}
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        {/* Dashboard Header */}
+        <div className="mb-6 sm:mb-8 flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl sm:text-3xl md:text-4xl font-semibold tracking-tight">
+              Patient Dashboard
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Manage your patients and medical records with voice assistance
             </p>
           </div>
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            className="mt-4 shrink-0 bg-black hover:bg-gray-800 text-white px-4 sm:px-6 py-5 sm:py-6 text-sm sm:text-base cursor-pointer"
+          >
+            <Plus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+            Add Patient
+          </Button>
         </div>
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            className="px-4 py-3 bg-blue-600 hover:bg-blue-700 hover:cursor-pointer active:scale-95 rounded-lg font-medium shadow-lg transition-all duration-300 disabled:bg-gray-700 disabled:text-gray-500 disabled:shadow-none flex items-center justify-center"
-            onClick={() =>
-              sendRecording(
-                "/api/patients",
-                {
-                  doctorId: "2ye8w7ty8f7",
-                  text: transcript,
-                },
-                "Patients"
-              )
-            }
-            disabled={isLoading || !transcript}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 mr-2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-            </svg>
-            {isLoading ? "Sending..." : "Save to Patients"}
-          </button>
-          <button
-            className="px-4 py-3 bg-purple-600 hover:bg-purple-700 hover:cursor-pointer active:scale-95 rounded-lg font-medium shadow-lg transition-all duration-300 disabled:bg-gray-700 disabled:text-gray-500 disabled:shadow-none flex items-center justify-center"
-            onClick={() =>
-              sendRecording(
-                "/api/visits",
-                {
-                  patientId: "9825aae5-8e73-4ed5-900a-680255e8c079",
-                  text: transcript,
-                },
-                "Visits"
-              )
-            }
-            disabled={isLoading || !transcript}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 mr-2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
-                clipRule="evenodd"
-              />
-            </svg>
-            {isLoading ? "Sending..." : "Save to Visits"}
-          </button>
+        {/* Stats Cards */}
+        <div className="mb-6 sm:mb-8 grid gap-3 sm:gap-4 md:grid-cols-3">
+          <Card className="overflow-hidden border-none bg-gradient-to-br from-blue-100 to-blue-50 shadow-md">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                    Total Patients
+                  </p>
+                  <h3 className="mt-1 text-2xl sm:text-3xl font-bold">
+                    {patients.length}
+                  </h3>
+                </div>
+                <div className="rounded-full bg-blue-500 p-2 sm:p-3 text-white">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-5 w-5 sm:h-6 sm:w-6"
+                  >
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="overflow-hidden border-none bg-gradient-to-br from-green-100 to-green-50 shadow-md">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                    Appointments Today
+                  </p>
+                  <h3 className="mt-1 text-2xl sm:text-3xl font-bold">8</h3>
+                </div>
+                <div className="rounded-full bg-green-500 p-2 sm:p-3 text-white">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-5 w-5 sm:h-6 sm:w-6"
+                  >
+                    <rect
+                      width="18"
+                      height="18"
+                      x="3"
+                      y="4"
+                      rx="2"
+                      ry="2"
+                    ></rect>
+                    <line x1="16" x2="16" y1="2" y2="6"></line>
+                    <line x1="8" x2="8" y1="2" y2="6"></line>
+                    <line x1="3" x2="21" y1="10" y2="10"></line>
+                    <path d="M8 14h.01"></path>
+                    <path d="M12 14h.01"></path>
+                    <path d="M16 14h.01"></path>
+                    <path d="M8 18h.01"></path>
+                    <path d="M12 18h.01"></path>
+                    <path d="M16 18h.01"></path>
+                  </svg>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="overflow-hidden border-none bg-gradient-to-br from-purple-100 to-purple-50 shadow-md">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                    Voice Notes
+                  </p>
+                  <h3 className="mt-1 text-2xl sm:text-3xl font-bold">24</h3>
+                </div>
+                <div className="rounded-full bg-purple-500 p-2 sm:p-3 text-white">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-5 w-5 sm:h-6 sm:w-6"
+                  >
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" x2="12" y1="19" y2="22"></line>
+                  </svg>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Notification */}
-        {notification.message && (
-          <div
-            className={`mt-6 px-4 py-3 rounded-lg flex items-center justify-center transition-all duration-300 ${
-              notification.type === "error"
-                ? "bg-red-900/40 text-red-200 border border-red-700/50"
-                : notification.type === "success"
-                ? "bg-green-900/40 text-green-200 border border-green-700/50"
-                : "bg-blue-900/40 text-blue-200 border border-blue-700/50"
-            }`}
-          >
-            <span className="mr-2">
-              {notification.type === "error"
-                ? "❌"
-                : notification.type === "success"
-                ? "✅"
-                : "ℹ️"}
-            </span>
-            {notification.message}
+        {/* Search and Table */}
+        <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search patients..."
+              className="pl-10 py-6 text-base w-full"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-        )}
-      </div>
+          <div className="flex flex-wrap gap-2 sm:gap-3">
+            <Badge
+              variant="outline"
+              className="bg-background font-medium text-blue-500 border-blue-200 px-3 sm:px-4 py-2 text-sm cursor-pointer whitespace-nowrap"
+            >
+              All Patients
+            </Badge>
+            <Badge
+              variant="outline"
+              className="bg-background font-medium text-gray-500 border-gray-200 px-3 sm:px-4 py-2 text-sm cursor-pointer whitespace-nowrap"
+            >
+              Recent
+            </Badge>
+            <Badge
+              variant="outline"
+              className="bg-background font-medium text-gray-500 border-gray-200 px-3 sm:px-4 py-2 text-sm cursor-pointer whitespace-nowrap"
+            >
+              Critical
+            </Badge>
+          </div>
+        </div>
 
-      <div className="mt-4 text-xs text-gray-500">
-        © 2025 Medical Voice Notes System
-      </div>
+        <div className="rounded-xl border bg-card shadow-sm max-w-[1200px] mx-auto overflow-x-auto">
+          <PatientsTable patients={filteredPatients} />
+        </div>
+      </main>
+
+      <AddPatientModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onAddPatient={addPatient}
+      />
     </div>
   );
 }
