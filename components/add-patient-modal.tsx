@@ -61,6 +61,8 @@ export function AddPatientModal({
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = language;
+        // Increase maxAlternatives to improve recognition
+        recognition.maxAlternatives = 3;
 
         recognition.onresult = (event: any) => {
           if (!isComponentMounted.current) return;
@@ -74,6 +76,14 @@ export function AddPatientModal({
               interimTranscript += event.results[i][0].transcript;
             }
           }
+
+          // Ensure transcript doesn't exceed reasonable limits
+          if (finalTranscriptRef.current.length > 10000) {
+            finalTranscriptRef.current = finalTranscriptRef.current.substring(
+              finalTranscriptRef.current.length - 10000
+            );
+          }
+
           setTranscript(finalTranscriptRef.current + interimTranscript);
         };
 
@@ -82,6 +92,7 @@ export function AddPatientModal({
 
           if (isRecording) {
             try {
+              // Restart recognition more quickly
               setTimeout(() => {
                 if (
                   recognitionRef.current &&
@@ -90,7 +101,7 @@ export function AddPatientModal({
                 ) {
                   recognitionRef.current.start();
                 }
-              }, 300);
+              }, 100); // Reduced from 300ms to 100ms
             } catch (error) {
               console.error("Failed to restart recording:", error);
               if (isComponentMounted.current) {
@@ -242,17 +253,17 @@ export function AddPatientModal({
         }
       }}
     >
-      <DialogContent className="sm:max-w-[550px] md:max-w-[650px] lg:max-w-[750px] p-4 sm:p-5 w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="mb-2">
-          <DialogTitle className="text-xl sm:text-2xl font-semibold">
+      <DialogContent className="sm:min-w-[500px] sm:max-w-[500px] md:min-w-[600px] md:max-w-[600px] lg:min-w-[600px] lg:max-w-[600px] xl:min-w-[600px] xl:max-w-[600px] p-4 sm:p-5 w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="gap-0 text-center sm:text-left">
+          <DialogTitle className="text-xl sm:text-2xl font-semibold leading-none mb-0">
             Add New Patient
           </DialogTitle>
-          <DialogDescription className="text-sm mt-1">
+          <DialogDescription className="text-sm -mt-1">
             Enter patient details and use voice recording for notes.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-2">
+          <div className="grid gap-4 py-0">
             <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-3">
               <Label
                 htmlFor="name"
