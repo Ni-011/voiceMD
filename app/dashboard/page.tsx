@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Search, Mic, Bell } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
@@ -8,9 +8,35 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddPatientModal } from "@/components/add-patient-modal";
-import { PatientsTable } from "@/components/patients-table";
+import { Patient, PatientsTable } from "@/components/patients-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import debounce from "lodash/debounce";
+
+const debouncedSearch = debounce(
+  async (
+    query,
+    endpoint = "/api/search?doctorId=2ye8w7ty8f7",
+    minLength = 2
+  ) => {
+    if (query.length < minLength) {
+      return [];
+    }
+
+    try {
+      const response = await fetch(`${endpoint}&name=${query}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch results");
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Search error:", error);
+      return [];
+    }
+  },
+  300
+);
 
 // Sample patient data
 const initialPatients = [
@@ -20,6 +46,7 @@ const initialPatients = [
     age: 45,
     gender: "Male",
     condition: "Hypertension",
+    status: "Active",
     lastVisit: "2023-11-15",
   },
   {
@@ -28,6 +55,7 @@ const initialPatients = [
     age: 32,
     gender: "Female",
     condition: "Diabetes Type 2",
+    status: "Active",
     lastVisit: "2023-12-01",
   },
   {
@@ -36,6 +64,7 @@ const initialPatients = [
     age: 28,
     gender: "Male",
     condition: "Asthma",
+    status: "Active",
     lastVisit: "2023-12-10",
   },
   {
@@ -44,6 +73,7 @@ const initialPatients = [
     age: 41,
     gender: "Female",
     condition: "Arthritis",
+    status: "Active",
     lastVisit: "2023-12-05",
   },
   {
@@ -52,6 +82,7 @@ const initialPatients = [
     age: 52,
     gender: "Male",
     condition: "Coronary Artery Disease",
+    status: "Active",
     lastVisit: "2023-11-28",
   },
 ];
@@ -68,11 +99,31 @@ export default function Dashboard() {
     ]);
   };
 
-  const filteredPatients = patients.filter(
-    (patient) =>
-      patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.condition.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPatients = async () => {
+    if (searchQuery === "") {
+      getPatients();
+    } else {
+      const results = await debouncedSearch(searchQuery);
+      console.log(results);
+
+      setPatients(results);
+    }
+  };
+  const getPatients = async () => {
+    // Fetch data from API
+    const response = await fetch("/api/patients?page=1&doctorId=2ye8w7ty8f7");
+    const data = await response.json();
+    console.log(data);
+
+    setPatients(data?.data);
+  };
+
+  // useEffect(() => {
+  //   getPatients();
+  // }, []);
+  useEffect(() => {
+    filteredPatients();
+  }, [searchQuery]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
@@ -136,7 +187,7 @@ export default function Dashboard() {
                     Total Patients
                   </p>
                   <h3 className="mt-1 text-2xl sm:text-3xl font-bold">
-                    {patients.length}
+                    {patients?.length ?? 0}
                   </h3>
                 </div>
                 <div className="rounded-full bg-blue-500 p-2 sm:p-3 text-white">
@@ -272,7 +323,7 @@ export default function Dashboard() {
         </div>
 
         <div className="rounded-xl border bg-card shadow-sm max-w-[1200px] mx-auto overflow-x-auto">
-          <PatientsTable patients={filteredPatients} />
+          <PatientsTable patients={patients} />
         </div>
       </main>
 

@@ -5,16 +5,23 @@ import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 const prompt_visits = `
-  Extract the following visit information from the text in English in JSON format strictly:
-  - diagnosis 
-  - prescriptions
-  - precautions
+  You are a medical report generator. Your task is to take the provided JSON data and transform it into a more detailed and well-structured sentence format while keeping the original schema intact. Follow these steps:
 
-  Format:
-  - diagnosis should be a JSON array containing multiple diagnoses if available.
-  - prescriptions should be a JSON array containing details of prescribed medications if available in the format strictly({nameofmedicine:string, frequency:string}).
-  - precautions should be a JSON array containing details of precautions if available.
-  - If any information is not present, return [] for that field.
+1. **Enhance the Data**:
+   - Expand each field into a detailed sentence.
+   - Use professional medical terminology.
+   - Ensure the structure of the JSON remains the same (e.g., arrays stay as arrays, objects stay as objects).
+
+2. **Example Transformation**:
+   - Input: "disease": ["arthritis", "diabetes"]
+   - Output: "disease": ["Diagnosed with chronic arthritis", "Diagnosed with type 2 diabetes"]
+
+3. **Formatting**:
+   - Use proper capitalization and punctuation.
+   - Keep the JSON structure clean and readable.
+
+4. **Output**:
+   - Return the enhanced JSON data in the same schema but with detailed sentences.
 `;
 
 export async function POST(req: NextRequest) {
@@ -49,7 +56,6 @@ export async function POST(req: NextRequest) {
       patientId: patientId,
       diagnosis: visit_info.diagnosis,
       prescriptions: visit_info.prescriptions,
-      precautions: visit_info.precautions,
     });
     return NextResponse.json(new_visit, { status: 200 });
   } catch (err) {
@@ -76,11 +82,21 @@ export async function GET(req: NextRequest) {
         .where(
           and(eq(visitsTable.patientId, patientId), eq(visitsTable.id, visitId))
         );
+      if (!visit.length) {
+        return NextResponse.json(
+          { error: "Visit not found." },
+          { status: 404 }
+        );
+      }
+      //   const visit_info = await generate(
+      //     JSON.stringify(visit[0]),
+      //     prompt_visits
+      //   );
 
-      return NextResponse.json(visit, { status: 200 });
+      return NextResponse.json(visit[0], { status: 200 });
     }
     const visits = await db
-      .select()
+      .select({ id: visitsTable.id, date: visitsTable.createdAt })
       .from(visitsTable)
       .where(eq(visitsTable.patientId, patientId));
     return NextResponse.json(visits, { status: 200 });

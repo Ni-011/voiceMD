@@ -1,3 +1,4 @@
+"use client";
 import { MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,13 +18,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useRouter } from "next/navigation";
 
-interface Patient {
+export interface Patient {
   id: string;
   name: string;
   age: number;
   gender: string;
   condition: string;
+  status: string;
   lastVisit: string;
 }
 
@@ -40,51 +43,37 @@ export function PatientsTable({ patients }: PatientsTableProps) {
       year: "numeric",
     }).format(date);
   };
+  const router = useRouter();
 
   const getStatusBadge = (condition: string) => {
     const conditions = {
-      Hypertension: {
-        color: "bg-yellow-100 text-yellow-800 border-yellow-200",
-        label: "Monitoring",
-      },
-      "Diabetes Type 2": {
-        color: "bg-orange-100 text-orange-800 border-orange-200",
-        label: "Ongoing",
-      },
-      Asthma: {
-        color: "bg-blue-100 text-blue-800 border-blue-200",
-        label: "Controlled",
-      },
-      Arthritis: {
-        color: "bg-purple-100 text-purple-800 border-purple-200",
-        label: "Chronic",
-      },
-      Coronary: {
-        color: "bg-red-100 text-red-800 border-red-200",
-        label: "Critical",
-      },
+      Active: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      Inactive: "bg-orange-100 text-orange-800 border-orange-200",
+      Discharged: "bg-blue-100 text-blue-800 border-blue-200",
     };
 
     for (const [key, value] of Object.entries(conditions)) {
       if (condition.includes(key)) {
         return (
           <Badge
-            className={`${value.color} text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 font-medium`}
+            className={`${value} text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 font-medium`}
           >
-            {value.label}
+            {condition}
           </Badge>
         );
       }
     }
 
-    return (
-      <Badge
-        variant="outline"
-        className="text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 font-medium"
-      >
-        Stable
-      </Badge>
-    );
+    // return (
+    //   <Badge
+    //     variant="outline"
+    //     className={`${
+    //       conditions[condition] as string
+    //     } text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 font-medium`}
+    //   >
+    //     Stable
+    //   </Badge>
+    // );
   };
 
   return (
@@ -108,14 +97,14 @@ export function PatientsTable({ patients }: PatientsTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {patients.length === 0 ? (
+          {patients?.length === 0 ? (
             <TableRow>
               <TableCell colSpan={7} className="h-24 text-center">
                 No patients found.
               </TableCell>
             </TableRow>
           ) : (
-            patients.map((patient) => (
+            patients?.map((patient) => (
               <TableRow
                 key={patient.id}
                 className="hover:bg-muted/50 border-b cursor-pointer"
@@ -141,7 +130,7 @@ export function PatientsTable({ patients }: PatientsTableProps) {
                   {patient.condition}
                 </TableCell>
                 <TableCell className="py-4 sm:py-5">
-                  {getStatusBadge(patient.condition)}
+                  {getStatusBadge(patient.status)}
                 </TableCell>
                 <TableCell className="text-base py-4 sm:py-5 hidden md:table-cell">
                   {formatDate(patient.lastVisit)}
@@ -160,7 +149,10 @@ export function PatientsTable({ patients }: PatientsTableProps) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem className="cursor-pointer">
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onClick={() => router.push(`/profile?id=${patient.id}`)}
+                      >
                         View patient
                       </DropdownMenuItem>
                       <DropdownMenuItem className="cursor-pointer">

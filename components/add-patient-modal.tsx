@@ -34,7 +34,8 @@ export function AddPatientModal({
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("Male");
-  const [condition, setCondition] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isHindi, setIsHindi] = useState(false);
@@ -221,11 +222,14 @@ export function AddPatientModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const patient = {
+      doctorId: "rf7y4e9yferh",
       name,
       age: Number.parseInt(age),
       gender,
-      condition: condition || transcript,
-      lastVisit: new Date().toISOString().split("T")[0],
+      phone,
+      email,
+      text: transcript,
+      // lastVisit: new Date().toISOString().split("T")[0],
     };
     onAddPatient(patient);
     resetForm();
@@ -236,7 +240,8 @@ export function AddPatientModal({
     setName("");
     setAge("");
     setGender("Male");
-    setCondition("");
+    setPhone("");
+    setEmail("");
     setTranscript("");
     setIsRecording(false);
     finalTranscriptRef.current = "";
@@ -253,9 +258,9 @@ export function AddPatientModal({
         }
       }}
     >
-      <DialogContent className="sm:min-w-[500px] sm:max-w-[500px] md:min-w-[600px] md:max-w-[600px] lg:min-w-[600px] lg:max-w-[600px] xl:min-w-[600px] xl:max-w-[600px] p-4 sm:p-5 w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="gap-0 text-center sm:text-left">
-          <DialogTitle className="text-xl sm:text-2xl font-semibold leading-none mb-0">
+      <DialogContent className="sm:max-w-[550px] md:max-w-[650px] lg:max-w-[750px] p-4 sm:p-5 w-[95vw] sm:w-auto max-h-[92vh] overflow-y-auto">
+        <DialogHeader className="mb-2">
+          <DialogTitle className="text-xl sm:text-2xl font-semibold">
             Add New Patient
           </DialogTitle>
           <DialogDescription className="text-sm -mt-1">
@@ -338,17 +343,30 @@ export function AddPatientModal({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-3">
               <Label
-                htmlFor="condition"
+                htmlFor="phone"
                 className="sm:text-right text-sm font-medium"
               >
-                Condition
+                Phone
               </Label>
               <Input
-                id="condition"
-                value={condition}
-                onChange={(e) => setCondition(e.target.value)}
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
                 className="sm:col-span-3 py-2 text-sm"
-                placeholder="Or use voice recording below"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-3">
+              <Label
+                htmlFor="email"
+                className="sm:text-right text-sm font-medium"
+              >
+                Email
+              </Label>
+              <Input
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="sm:col-span-3 py-2 text-sm"
               />
             </div>
 

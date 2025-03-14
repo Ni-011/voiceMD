@@ -36,6 +36,41 @@
       "when": 1741594346746,
       "tag": "0004_great_talos",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1741794266925,
+      "tag": "0005_solid_supernaut",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1741950326825,
+      "tag": "0006_fat_supreme_intelligence",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1741950931926,
+      "tag": "0007_public_fabian_cortez",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1741950980755,
+      "tag": "0008_fearless_sheva_callister",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1741960703610,
+      "tag": "0009_optimal_master_mold",
+      "breakpoints": true
     }
   ]
 }
