@@ -123,6 +123,7 @@ export async function POST(req: NextRequest) {
         condition: patientTable.condition,
         age: patientTable.age,
         gender: patientTable.gender,
+        lastVisit: patientTable.lastVisit,
       });
 
     const new_visit = await db
