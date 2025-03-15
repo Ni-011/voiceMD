@@ -26,8 +26,29 @@ const prompt_visits = `
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, patientId } = await req.json();
-    if (!text || !patientId) {
+    const { diagnosis, precautions, prescribe_meds, patientId, text, visitId } =
+      await req.json();
+
+    if (visitId) {
+      console.log(diagnosis, precautions, prescribe_meds);
+
+      const visit = await db
+        .update(visitsTable)
+        .set({
+          diagnosis: diagnosis,
+          prescriptions: {
+            prescribe_meds: prescribe_meds,
+            precautions: precautions,
+          },
+        })
+        .where(eq(visitsTable.id, visitId));
+
+      return NextResponse.json(
+        { message: "data updated successfully", visit },
+        { status: 200 }
+      );
+    }
+    if (!patientId || !text) {
       return NextResponse.json(
         { error: "Text and patientId are required." },
         { status: 400 }

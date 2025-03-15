@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { useRouter } from "next/navigation";
 
 interface AddPatientModalProps {
   isOpen: boolean;
@@ -39,8 +40,8 @@ export function AddPatientModal({
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isHindi, setIsHindi] = useState(false);
+  const router = useRouter();
 
-  // For speech recognition
   const recognitionRef = useRef<any>(null);
   const finalTranscriptRef = useRef("");
   const isComponentMounted = useRef(true);
@@ -219,21 +220,39 @@ export function AddPatientModal({
     setIsHindi(!isHindi);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const patient = {
-      doctorId: "rf7y4e9yferh",
       name,
-      age: Number.parseInt(age),
+      age,
       gender,
       phone,
       email,
+      doctorId: "2ye8w7ty8f7",
       text: transcript,
-      // lastVisit: new Date().toISOString().split("T")[0],
     };
-    onAddPatient(patient);
+    // onAddPatient(patient);
     resetForm();
     onClose();
+    const response = await fetch("/api/patients", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(patient),
+    });
+    if (response.ok) {
+      const data = await response.json();
+      console.log(data);
+      if (data.new_patient) onAddPatient(data.new_patient);
+
+      router.push(
+        `/editor?patientId=${data.new_visit.patientId}&visitId=${data.new_visit.id}`
+      );
+      onClose();
+    } else {
+      console.error("Failed to add patient:", response.statusText);
+    }
   };
 
   const resetForm = () => {

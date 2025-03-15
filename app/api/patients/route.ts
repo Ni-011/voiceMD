@@ -10,19 +10,19 @@ const prompt_info = `
   - medicalHistory(should be in json format can contain these fields(disease(array of string), active_med(array of string), BP, deficiencies(array of string)))
   - diagnosis 
   - prescriptions
-  - precaution
+  - precautions
   - condition
   - status
 
   Format:
   - diagnosis should be a JSON array containing multiple diagnoses if available.
-  - prescriptions should be a JSON array containing details of prescribed medications if available in the format strictly([{(nameofmedicine: string), (frequency: string)}]).
+  - prescriptions should be a JSON array containing details of prescribed medications if available in the format strictly([{nameofmedicine, frequency}]).
   - precautions should be a JSON array containing details of precautions if available.
   - If any information is not present, return [] for that field.
-  - For condition you have to self evaluate the whole text and give a response in string, that what condition is person having as a problem(keep it short fot this one).
+  - For condition you have to self evaluate the whole text and give a response in string, that what condition is person having as a problem(in few words(3-4)).
   - For status you have to self evaluate the whole text and give a response in string from these values namely(Active, Inactive, Discharged).
 
-1. **Enhance the Data (execept for condition and status fields)**:
+1. **Enhance the Data (except for condition and status fields)**:
    - Expand each field into a detailed sentence EXCEPT for the "name" ,"gender", phone, email fields, which should remain untouched.
    - Use professional medical terminology.
    - Ensure the structure of the JSON remains the same (e.g., arrays stay as arrays, objects stay as objects).
@@ -85,15 +85,21 @@ export async function POST(req: NextRequest) {
         })
         .where(eq(patientTable.id, ifPatientAvailable[0]?.id));
 
-      await db.insert(visitsTable).values({
-        diagnosis: patient_info?.diagnosis,
-        prescriptions: {
-          prescribe_meds: patient_info?.prescriptions,
-          precautions: patient_info?.precautions,
-        },
-        patientId: ifPatientAvailable[0]?.id,
-      });
-      return NextResponse.json(ifPatientAvailable[0], { status: 200 });
+      const new_visit = await db
+        .insert(visitsTable)
+        .values({
+          diagnosis: patient_info?.diagnosis,
+          prescriptions: {
+            prescribe_meds: patient_info?.prescriptions,
+            precautions: patient_info?.precautions,
+          },
+          patientId: ifPatientAvailable[0]?.id,
+        })
+        .returning({
+          id: visitsTable.id,
+          patientId: visitsTable.patientId,
+        });
+      return NextResponse.json({ new_visit: new_visit[0] }, { status: 200 });
     }
 
     const new_patient = await db
@@ -106,19 +112,38 @@ export async function POST(req: NextRequest) {
         email: email,
         medicalHistory: patient_info.medicalHistory,
         doctorId: body?.doctorId,
+        lastVisit: new Date(),
+        condition: patient_info?.condition,
+        status: patient_info?.status,
       })
-      .returning({ id: patientTable.id, name: patientTable.name });
+      .returning({
+        id: patientTable.id,
+        name: patientTable.name,
+        status: patientTable.status,
+        condition: patientTable.condition,
+        age: patientTable.age,
+        gender: patientTable.gender,
+      });
 
-    await db.insert(visitsTable).values({
-      diagnosis: patient_info?.diagnosis,
-      prescriptions: {
-        prescribe_meds: patient_info?.prescriptions,
-        precautions: patient_info?.precautions,
-      },
-      patientId: new_patient[0]?.id,
-    });
+    const new_visit = await db
+      .insert(visitsTable)
+      .values({
+        diagnosis: patient_info?.diagnosis,
+        prescriptions: {
+          prescribe_meds: patient_info?.prescriptions,
+          precautions: patient_info?.precautions,
+        },
+        patientId: new_patient[0]?.id,
+      })
+      .returning({
+        id: visitsTable.id,
+        patientId: visitsTable.patientId,
+      });
 
-    return NextResponse.json(new_patient, { status: 200 });
+    return NextResponse.json(
+      { new_patient: new_patient[0], new_visit: new_visit[0] },
+      { status: 200 }
+    );
   } catch (err) {
     console.error(err);
     return NextResponse.json(

@@ -53,7 +53,7 @@ export function PatientsTable({ patients }: PatientsTableProps) {
     };
 
     for (const [key, value] of Object.entries(conditions)) {
-      if (condition.includes(key)) {
+      if (condition === key) {
         return (
           <Badge
             className={`${value} text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 font-medium`}

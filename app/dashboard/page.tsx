@@ -16,7 +16,7 @@ import debounce from "lodash/debounce";
 const debouncedSearch = debounce(
   async (
     query,
-    endpoint = "/api/search?doctorId=2ye8w7ty8f7",
+    endpoint = "/api/search?doctorId=rf7y4e9yferh",
     minLength = 2
   ) => {
     if (query.length < minLength) {
@@ -38,61 +38,12 @@ const debouncedSearch = debounce(
   300
 );
 
-// Sample patient data
-const initialPatients = [
-  {
-    id: "1",
-    name: "Rahul Sharma",
-    age: 45,
-    gender: "Male",
-    condition: "Hypertension",
-    status: "Active",
-    lastVisit: "2023-11-15",
-  },
-  {
-    id: "2",
-    name: "Priya Patel",
-    age: 32,
-    gender: "Female",
-    condition: "Diabetes Type 2",
-    status: "Active",
-    lastVisit: "2023-12-01",
-  },
-  {
-    id: "3",
-    name: "Amit Singh",
-    age: 28,
-    gender: "Male",
-    condition: "Asthma",
-    status: "Active",
-    lastVisit: "2023-12-10",
-  },
-  {
-    id: "4",
-    name: "Neha Gupta",
-    age: 41,
-    gender: "Female",
-    condition: "Arthritis",
-    status: "Active",
-    lastVisit: "2023-12-05",
-  },
-  {
-    id: "5",
-    name: "Vikram Malhotra",
-    age: 52,
-    gender: "Male",
-    condition: "Coronary Artery Disease",
-    status: "Active",
-    lastVisit: "2023-11-28",
-  },
-];
-
 export default function Dashboard() {
-  const [patients, setPatients] = useState(initialPatients);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const addPatient = (patient: any) => {
+  const addPatient = (patient: Patient) => {
     setPatients([
       ...patients,
       { ...patient, id: (patients.length + 1).toString() },
@@ -111,7 +62,7 @@ export default function Dashboard() {
   };
   const getPatients = async () => {
     // Fetch data from API
-    const response = await fetch("/api/patients?page=1&doctorId=2ye8w7ty8f7");
+    const response = await fetch("/api/patients?page=1&doctorId=rf7y4e9yferh");
     const data = await response.json();
     console.log(data);
 
