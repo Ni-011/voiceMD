@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { patientTable, visitsTable } from "@/lib/db/schema";
 import { generate } from "@/lib/gemni_api/genAi";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 const prompt_visits = `
@@ -119,7 +119,8 @@ export async function GET(req: NextRequest) {
     const visits = await db
       .select({ id: visitsTable.id, date: visitsTable.createdAt })
       .from(visitsTable)
-      .where(eq(visitsTable.patientId, patientId));
+      .where(eq(visitsTable.patientId, patientId))
+      .orderBy(desc(visitsTable.createdAt));
     return NextResponse.json(visits, { status: 200 });
   } catch (err) {
     console.log("An error occurred: ", err);

@@ -6,8 +6,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 // Define interfaces for type safety
 interface Medication {
   nameofmedicine: string;
-  frequency: string;
-  frequencyType: "daily" | "weekly" | "monthly";
+  dosage: string;
+  frequency: "daily" | "weekly" | "monthly";
   emptyStomach: "yes" | "no";
 }
 
@@ -74,8 +74,8 @@ const EditorPage = () => {
             ...prev!.prescribe_meds,
             {
               nameofmedicine: "",
-              frequency: "1",
-              frequencyType: "daily",
+              dosage: "1",
+              frequency: "daily",
               emptyStomach: "no",
             },
           ],
@@ -140,7 +140,7 @@ const EditorPage = () => {
       if (response.ok) {
         alert("Visit data saved successfully!");
         // Redirect to home page
-        router.push("/");
+        router.push(`/profile?id=${patientId}`);
       } else {
         alert("Error saving data.");
       }
@@ -458,13 +458,13 @@ const EditorPage = () => {
                     <div className="flex items-center">
                       <button
                         onClick={() => {
-                          const currentValue = parseInt(med.frequency) || 0;
+                          const currentValue = parseInt(med.dosage) || 0;
                           if (currentValue > 1) {
                             handleChange(
                               "prescribe_meds",
                               index,
                               (currentValue - 1).toString(),
-                              "frequency"
+                              "dosage"
                             );
                           }
                         }}
@@ -476,25 +476,25 @@ const EditorPage = () => {
                       <input
                         type="number"
                         min="1"
-                        value={med.frequency}
+                        value={med.dosage}
                         onChange={(e) =>
                           handleChange(
                             "prescribe_meds",
                             index,
                             e.target.value,
-                            "frequency"
+                            "dosage"
                           )
                         }
                         className="w-full p-3 bg-white border-t border-b border-gray-200 text-center text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200"
                       />
                       <button
                         onClick={() => {
-                          const currentValue = parseInt(med.frequency) || 0;
+                          const currentValue = parseInt(med.dosage) || 0;
                           handleChange(
                             "prescribe_meds",
                             index,
                             (currentValue + 1).toString(),
-                            "frequency"
+                            "dosage"
                           );
                         }}
                         className="p-2 bg-gray-100 text-gray-700 rounded-r-lg border border-gray-200 hover:bg-gray-200 transition-all duration-200"
@@ -511,13 +511,13 @@ const EditorPage = () => {
                       Frequency
                     </label>
                     <select
-                      value={med.frequencyType}
+                      value={med.frequency}
                       onChange={(e) =>
                         handleChange(
                           "prescribe_meds",
                           index,
                           e.target.value as "daily" | "weekly" | "monthly",
-                          "frequencyType"
+                          "frequency"
                         )
                       }
                       className="w-full p-3 bg-white border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200"

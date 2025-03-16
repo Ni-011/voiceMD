@@ -14,17 +14,18 @@ import {
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
-// Interfaces for type safety
 interface PrescribedMedication {
-  [key: string]: string; // For the old format
+  [key: string]: string;
   nameofmedicine: string;
   frequency: string;
+  dosage: string;
+  emptyStomach: string;
 }
 
 interface SelectedVisit {
   id: string;
   diagnosis: string[];
-  date?: string; // Added date field
+  date?: string;
   prescriptions: {
     precautions: string[];
     prescribe_meds: PrescribedMedication[];
@@ -129,14 +130,14 @@ const Report = () => {
   };
 
   // Helper function to normalize medication data
-  const normalizeMedication = (med: PrescribedMedication) => {
-    if (med.nameofmedicine && med.frequency) {
-      return { nameofmedicine: med.nameofmedicine, frequency: med.frequency };
-    }
-    // Handle the old format where med is {medName: frequency}
-    const medName = Object.keys(med)[0];
-    return { nameofmedicine: medName, frequency: med[medName] };
-  };
+  // const normalizeMedication = (med: PrescribedMedication) => {
+  //   if (med.nameofmedicine && med.frequency) {
+  //     return { nameofmedicine: med.nameofmedicine, frequency: med.frequency };
+  //   }
+  //   // Handle the old format where med is {medName: frequency}
+  //   const medName = Object.keys(med)[0];
+  //   return { nameofmedicine: medName, frequency: med[medName] };
+  // };
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -375,12 +376,18 @@ const Report = () => {
                               Dosage
                             </span>
                           </th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm md:text-base">
+                            Frequency
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm md:text-base">
+                            Food Requirement
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {selectedVisit?.prescriptions?.prescribe_meds.map(
                           (med, index) => {
-                            const normalizedMed = normalizeMedication(med);
+                            // const normalizedMed = normalizeMedication(med);
                             return (
                               <tr
                                 key={index}
@@ -389,10 +396,16 @@ const Report = () => {
                                 }`}
                               >
                                 <td className="py-3 px-4 font-medium text-gray-700 border-t border-gray-100 text-sm md:text-base break-all">
-                                  {normalizedMed.nameofmedicine}
+                                  {med?.nameofmedicine}
                                 </td>
                                 <td className="py-3 px-4 text-gray-600 border-t border-gray-100 text-sm md:text-base">
-                                  {normalizedMed.frequency}
+                                  {med?.dosage}
+                                </td>
+                                <td className="py-3 px-4 text-gray-600 border-t border-gray-100 text-sm md:text-base">
+                                  {med?.frequency}
+                                </td>
+                                <td className="py-3 px-4 text-gray-600 border-t border-gray-100 text-sm md:text-base">
+                                  {med?.emptyStomach}
                                 </td>
                               </tr>
                             );
