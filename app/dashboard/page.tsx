@@ -16,7 +16,7 @@ import debounce from "lodash/debounce";
 const debouncedSearch = debounce(
   async (
     query,
-    endpoint = "/api/search?doctorId=rf7y4e9yferh",
+    endpoint = "/api/search?doctorId=2ye8w7ty8f7",
     minLength = 2
   ) => {
     if (query.length < minLength) {
@@ -62,7 +62,7 @@ export default function Dashboard() {
   };
   const getPatients = async () => {
     // Fetch data from API
-    const response = await fetch("/api/patients?page=1&doctorId=rf7y4e9yferh");
+    const response = await fetch("/api/patients?page=1&doctorId=2ye8w7ty8f7");
     const data = await response.json();
     console.log(data);
 
