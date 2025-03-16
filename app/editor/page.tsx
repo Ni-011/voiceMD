@@ -1,12 +1,14 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { X, Plus, Save, Stethoscope } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import React, { useState, useEffect, useRef } from "react";
+import { X, Plus, Save, Stethoscope, Mic, XCircle } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 // Define interfaces for type safety
 interface Medication {
   nameofmedicine: string;
   frequency: string;
+  frequencyType: "daily" | "weekly" | "monthly";
+  emptyStomach: "yes" | "no";
 }
 
 interface VisitData {
@@ -18,9 +20,14 @@ interface VisitData {
 const EditorPage = () => {
   const [visitData, setVisitData] = useState<VisitData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isListening, setIsListening] = useState<{ [key: string]: boolean }>(
+    {}
+  );
   const searchParams = useSearchParams();
+  const router = useRouter();
   const patientId = searchParams.get("patientId");
   const visitId = searchParams.get("visitId");
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -65,7 +72,12 @@ const EditorPage = () => {
           ...prev!,
           prescribe_meds: [
             ...prev!.prescribe_meds,
-            { nameofmedicine: "", frequency: "" },
+            {
+              nameofmedicine: "",
+              frequency: "1",
+              frequencyType: "daily",
+              emptyStomach: "no",
+            },
           ],
         };
       } else {
@@ -127,7 +139,8 @@ const EditorPage = () => {
       });
       if (response.ok) {
         alert("Visit data saved successfully!");
-        // Redirect to report page: window.location.href = "/report?id=65bfbd48-0d2b-4c92-85bb-f1b81f8f3ac5";
+        // Redirect to home page
+        router.push("/");
       } else {
         alert("Error saving data.");
       }
@@ -135,6 +148,86 @@ const EditorPage = () => {
       console.error("API Error:", error);
       alert("Failed to save data.");
     }
+  };
+
+  // Handle cancel button click
+  const handleCancel = () => {
+    if (
+      confirm(
+        "Are you sure you want to cancel? Any unsaved changes will be lost."
+      )
+    ) {
+      router.push("/");
+    }
+  };
+
+  // Handle voice input
+  const toggleListening = (
+    field: keyof VisitData,
+    index: number,
+    subField?: keyof Medication
+  ) => {
+    const fieldKey = subField
+      ? `${field}-${index}-${subField}`
+      : `${field}-${index}`;
+
+    // If already listening for this field, stop listening
+    if (isListening[fieldKey]) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+      setIsListening((prev) => ({ ...prev, [fieldKey]: false }));
+      return;
+    }
+
+    // Check if browser supports speech recognition
+    if (
+      !("webkitSpeechRecognition" in window) &&
+      !("SpeechRecognition" in window)
+    ) {
+      alert(
+        "Speech recognition is not supported in your browser. Please use Chrome."
+      );
+      return;
+    }
+
+    // Create speech recognition instance
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+
+    recognition.lang = "en-US";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    // Set listening state for this field
+    setIsListening((prev) => ({ ...prev, [fieldKey]: true }));
+
+    // Handle results
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0])
+        .map((result) => result.transcript)
+        .join("");
+
+      // Update the field with transcript
+      if (field === "prescribe_meds" && subField) {
+        handleChange(field, index, transcript, subField);
+      } else {
+        handleChange(field, index, transcript);
+      }
+    };
+
+    // Handle end of speech recognition
+    recognition.onend = () => {
+      setIsListening((prev) => ({ ...prev, [fieldKey]: false }));
+      recognitionRef.current = null;
+    };
+
+    // Start listening
+    recognition.start();
   };
 
   // Loader component
@@ -197,6 +290,25 @@ const EditorPage = () => {
                 className="w-full p-4 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 hover:border-purple-300"
                 rows={3}
               />
+              <button
+                onClick={() => toggleListening("diagnosis", index)}
+                className={`p-2 ${
+                  isListening[`diagnosis-${index}`]
+                    ? "bg-purple-100 text-purple-600"
+                    : "text-gray-400 hover:text-purple-500 hover:bg-purple-50"
+                } rounded-full transition-all duration-200`}
+                title={
+                  isListening[`diagnosis-${index}`]
+                    ? "Stop voice input"
+                    : "Start voice input"
+                }
+              >
+                {isListening[`diagnosis-${index}`] ? (
+                  <XCircle className="h-5 w-5" />
+                ) : (
+                  <Mic className="h-5 w-5" />
+                )}
+              </button>
               {visitData.diagnosis.length > 1 && (
                 <button
                   onClick={() => deleteField("diagnosis", index)}
@@ -237,6 +349,25 @@ const EditorPage = () => {
                 className="w-full p-4 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200 hover:border-orange-300"
                 rows={3}
               />
+              <button
+                onClick={() => toggleListening("precautions", index)}
+                className={`p-2 ${
+                  isListening[`precautions-${index}`]
+                    ? "bg-orange-100 text-orange-600"
+                    : "text-gray-400 hover:text-orange-500 hover:bg-orange-50"
+                } rounded-full transition-all duration-200`}
+                title={
+                  isListening[`precautions-${index}`]
+                    ? "Stop voice input"
+                    : "Start voice input"
+                }
+              >
+                {isListening[`precautions-${index}`] ? (
+                  <XCircle className="h-5 w-5" />
+                ) : (
+                  <Mic className="h-5 w-5" />
+                )}
+              </button>
               {visitData.precautions.length > 1 && (
                 <button
                   onClick={() => deleteField("precautions", index)}
@@ -266,44 +397,171 @@ const EditorPage = () => {
           {visitData.prescribe_meds.map((med, index) => (
             <div
               key={index}
-              className="mb-4 flex items-center gap-3 group animate-fade-in"
+              className="mb-6 p-4 border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 group animate-fade-in bg-white"
             >
-              <input
-                type="text"
-                value={med.nameofmedicine}
-                onChange={(e) =>
-                  handleChange(
-                    "prescribe_meds",
-                    index,
-                    e.target.value,
-                    "nameofmedicine"
-                  )
-                }
-                placeholder="Medication Name"
-                className="w-1/2 p-4 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200 hover:border-pink-300"
-              />
-              <input
-                type="text"
-                value={med.frequency}
-                onChange={(e) =>
-                  handleChange(
-                    "prescribe_meds",
-                    index,
-                    e.target.value,
-                    "frequency"
-                  )
-                }
-                placeholder="Dosage/Frequency"
-                className="w-1/2 p-4 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200 hover:border-pink-300"
-              />
-              {visitData.prescribe_meds.length > 1 && (
-                <button
-                  onClick={() => deleteField("prescribe_meds", index)}
-                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {/* Left side - Medication Name with mic */}
+                <div className="w-2/5 bg-pink-50 p-3 rounded-lg border border-pink-100">
+                  <label className="block text-xs font-medium text-pink-600 mb-1">
+                    Medication Name
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={med.nameofmedicine}
+                      onChange={(e) =>
+                        handleChange(
+                          "prescribe_meds",
+                          index,
+                          e.target.value,
+                          "nameofmedicine"
+                        )
+                      }
+                      placeholder="Enter medication name"
+                      className="w-full p-3 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
+                    />
+                    <button
+                      onClick={() =>
+                        toggleListening(
+                          "prescribe_meds",
+                          index,
+                          "nameofmedicine"
+                        )
+                      }
+                      className={`p-2 ${
+                        isListening[`prescribe_meds-${index}-nameofmedicine`]
+                          ? "bg-pink-100 text-pink-600"
+                          : "text-gray-400 hover:text-pink-500 hover:bg-pink-50"
+                      } rounded-full transition-all duration-200`}
+                      title={
+                        isListening[`prescribe_meds-${index}-nameofmedicine`]
+                          ? "Stop voice input"
+                          : "Start voice input"
+                      }
+                    >
+                      {isListening[`prescribe_meds-${index}-nameofmedicine`] ? (
+                        <XCircle className="h-5 w-5" />
+                      ) : (
+                        <Mic className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right side - Frequency, Type, and Food Requirements */}
+                <div className="w-3/5 flex items-center gap-3">
+                  {/* Frequency count */}
+                  <div className="w-1/3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Dosage
+                    </label>
+                    <div className="flex items-center">
+                      <button
+                        onClick={() => {
+                          const currentValue = parseInt(med.frequency) || 0;
+                          if (currentValue > 1) {
+                            handleChange(
+                              "prescribe_meds",
+                              index,
+                              (currentValue - 1).toString(),
+                              "frequency"
+                            );
+                          }
+                        }}
+                        className="p-2 bg-gray-100 text-gray-700 rounded-l-lg border border-gray-200 hover:bg-gray-200 transition-all duration-200"
+                        title="Decrease dosage"
+                      >
+                        <span className="font-bold">−</span>
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        value={med.frequency}
+                        onChange={(e) =>
+                          handleChange(
+                            "prescribe_meds",
+                            index,
+                            e.target.value,
+                            "frequency"
+                          )
+                        }
+                        className="w-full p-3 bg-white border-t border-b border-gray-200 text-center text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200"
+                      />
+                      <button
+                        onClick={() => {
+                          const currentValue = parseInt(med.frequency) || 0;
+                          handleChange(
+                            "prescribe_meds",
+                            index,
+                            (currentValue + 1).toString(),
+                            "frequency"
+                          );
+                        }}
+                        className="p-2 bg-gray-100 text-gray-700 rounded-r-lg border border-gray-200 hover:bg-gray-200 transition-all duration-200"
+                        title="Increase dosage"
+                      >
+                        <span className="font-bold">+</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Frequency type dropdown */}
+                  <div className="w-1/3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Frequency
+                    </label>
+                    <select
+                      value={med.frequencyType}
+                      onChange={(e) =>
+                        handleChange(
+                          "prescribe_meds",
+                          index,
+                          e.target.value as "daily" | "weekly" | "monthly",
+                          "frequencyType"
+                        )
+                      }
+                      className="w-full p-3 bg-white border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200"
+                    >
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+
+                  {/* Empty stomach dropdown */}
+                  <div className="w-1/3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Food Requirement
+                    </label>
+                    <select
+                      value={med.emptyStomach}
+                      onChange={(e) =>
+                        handleChange(
+                          "prescribe_meds",
+                          index,
+                          e.target.value as "yes" | "no",
+                          "emptyStomach"
+                        )
+                      }
+                      className="w-full p-3 bg-white border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200"
+                    >
+                      <option value="no">After Food</option>
+                      <option value="yes">Empty Stomach</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Delete button */}
+                {visitData.prescribe_meds.length > 1 && (
+                  <button
+                    onClick={() => deleteField("prescribe_meds", index)}
+                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200"
+                    title="Remove medication"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
           <button
@@ -314,8 +572,14 @@ const EditorPage = () => {
           </button>
         </section>
 
-        {/* Done Button */}
-        <div className="flex justify-end">
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-4">
+          <button
+            onClick={handleCancel}
+            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg flex items-center hover:bg-gray-300 transition-all duration-200 shadow-md hover:shadow-lg"
+          >
+            <XCircle className="h-5 w-5 mr-2" /> Cancel
+          </button>
           <button
             onClick={handleDone}
             className="px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-500 text-white rounded-lg flex items-center hover:from-teal-700 hover:to-teal-600 transition-all duration-200 shadow-md hover:shadow-lg"
@@ -344,5 +608,13 @@ const EditorPage = () => {
     </div>
   );
 };
+
+// Add TypeScript declarations for the Web Speech API
+declare global {
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition;
+    webkitSpeechRecognition: typeof SpeechRecognition;
+  }
+}
 
 export default EditorPage;

@@ -277,7 +277,7 @@ export function AddPatientModal({
         }
       }}
     >
-      <DialogContent className="sm:max-w-[550px] md:max-w-[650px] lg:max-w-[750px] p-4 sm:p-5 w-[95vw] sm:w-auto max-h-[92vh] overflow-y-auto">
+      <DialogContent className="w-[750px] max-w-[95vw] p-4 sm:p-5 max-h-[92vh] overflow-y-auto">
         <DialogHeader className="mb-2">
           <DialogTitle className="text-xl sm:text-2xl font-semibold">
             Add New Patient
