@@ -3,7 +3,7 @@
 import type React from "react";
 
 import { useState, useRef, useEffect } from "react";
-import { Mic, MicOff, Languages } from "lucide-react";
+import { Mic, MicOff, Languages, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +40,7 @@ export function AddPatientModal({
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isHindi, setIsHindi] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const recognitionRef = useRef<any>(null);
@@ -231,27 +232,35 @@ export function AddPatientModal({
       doctorId: "2ye8w7ty8f7",
       text: transcript,
     };
-    // onAddPatient(patient);
-    resetForm();
-    onClose();
-    const response = await fetch("/api/patients", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(patient),
-    });
-    if (response.ok) {
-      const data = await response.json();
-      console.log(data);
-      if (data.new_patient) onAddPatient(data.new_patient);
 
-      router.push(
-        `/editor?patientId=${data.new_visit.patientId}&visitId=${data.new_visit.id}`
-      );
-      onClose();
-    } else {
-      console.error("Failed to add patient:", response.statusText);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/patients", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(patient),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(data);
+        if (data.new_patient) onAddPatient(data.new_patient);
+
+        resetForm();
+        onClose();
+        router.push(
+          `/editor?patientId=${data.new_visit.patientId}&visitId=${data.new_visit.id}`
+        );
+      } else {
+        console.error("Failed to add patient:", response.statusText);
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error("Error adding patient:", error);
+      setIsLoading(false);
     }
   };
 
@@ -267,17 +276,39 @@ export function AddPatientModal({
     cleanupSpeechRecognition();
   };
 
+  // Loading overlay component
+  const LoadingOverlay = () => (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
+      <div className="bg-white rounded-lg p-6 shadow-xl flex flex-col items-center">
+        <div className="relative w-16 h-16 mb-4">
+          <div className="absolute top-0 left-0 w-full h-full border-4 border-t-black border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+          <div
+            className="absolute top-1 left-1 w-14 h-14 border-4 border-t-transparent border-r-black border-b-transparent border-l-transparent rounded-full animate-spin"
+            style={{ animationDirection: "reverse", animationDuration: "0.8s" }}
+          ></div>
+          <div
+            className="absolute top-2 left-2 w-12 h-12 border-4 border-t-transparent border-r-transparent border-b-black border-l-transparent rounded-full animate-spin"
+            style={{ animationDuration: "1.2s" }}
+          ></div>
+        </div>
+        <p className="text-lg font-medium">Adding patient...</p>
+        <p className="text-sm text-gray-500 mt-1">Please wait</p>
+      </div>
+    </div>
+  );
+
   return (
     <Dialog
-      open={isOpen}
+      open={isOpen || isLoading}
       onOpenChange={(open) => {
-        if (!open) {
+        if (!open && !isLoading) {
           resetForm();
           onClose();
         }
       }}
     >
-      <DialogContent className="w-[750px] max-w-[95vw] p-4 sm:p-5 max-h-[92vh] overflow-y-auto">
+      <DialogContent className="w-[850px] max-w-[95vw] p-4 sm:p-5 max-h-[92vh] lg:w-[600px] lg:max-w-[600px] overflow-y-auto">
+        {isLoading && <LoadingOverlay />}
         <DialogHeader className="mb-2">
           <DialogTitle className="text-xl sm:text-2xl font-semibold">
             Add New Patient
@@ -449,15 +480,24 @@ export function AddPatientModal({
               type="button"
               variant="outline"
               onClick={onClose}
-              className="bg-white text-black border-gray-200 hover:bg-gray-50 px-4 py-2 text-sm h-9 cursor-pointer w-full sm:w-auto"
+              disabled={isLoading}
+              className="bg-white text-black border-gray-200 hover:bg-gray-50 px-4 py-2 text-sm h-9 cursor-pointer w-full sm:w-auto disabled:opacity-50"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="bg-black hover:bg-gray-800 text-white px-4 py-2 text-sm h-9 cursor-pointer w-full sm:w-auto"
+              disabled={isLoading}
+              className="bg-black hover:bg-gray-800 text-white px-4 py-2 text-sm h-9 cursor-pointer w-full sm:w-auto disabled:opacity-50"
             >
-              Add Patient
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                "Add Patient"
+              )}
             </Button>
           </DialogFooter>
         </form>

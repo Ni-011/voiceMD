@@ -42,6 +42,7 @@ export default function Dashboard() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   const addPatient = (patient: Patient) => {
     setPatients([
@@ -51,6 +52,7 @@ export default function Dashboard() {
   };
 
   const filteredPatients = async () => {
+    setIsLoading(true);
     if (searchQuery === "") {
       getPatients();
     } else {
@@ -58,15 +60,23 @@ export default function Dashboard() {
       console.log(results);
 
       setPatients(results);
+      setIsLoading(false);
     }
   };
   const getPatients = async () => {
-    // Fetch data from API
-    const response = await fetch("/api/patients?page=1&doctorId=2ye8w7ty8f7");
-    const data = await response.json();
-    console.log(data);
+    setIsLoading(true);
+    try {
+      // Fetch data from API
+      const response = await fetch("/api/patients?page=1&doctorId=2ye8w7ty8f7");
+      const data = await response.json();
+      console.log(data);
 
-    setPatients(data?.data);
+      setPatients(data?.data);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // useEffect(() => {
@@ -75,6 +85,11 @@ export default function Dashboard() {
   useEffect(() => {
     filteredPatients();
   }, [searchQuery]);
+
+  // Add a useEffect for initial data loading
+  useEffect(() => {
+    getPatients();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
@@ -274,7 +289,7 @@ export default function Dashboard() {
         </div>
 
         <div className="rounded-xl border bg-card shadow-sm max-w-[1200px] mx-auto overflow-x-auto">
-          <PatientsTable patients={patients} />
+          <PatientsTable patients={patients} isLoading={isLoading} />
         </div>
       </main>
 

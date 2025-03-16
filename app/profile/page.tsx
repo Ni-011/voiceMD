@@ -11,8 +11,17 @@ import {
   FileText,
   Menu,
   X,
+  ChevronRight,
+  Stethoscope,
+  Pill,
+  Calendar,
+  BarChart2,
+  Mic,
+  ArrowLeft,
+  Home,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 interface PrescribedMedication {
   [key: string]: string;
@@ -129,16 +138,6 @@ const Report = () => {
     window.print();
   };
 
-  // Helper function to normalize medication data
-  // const normalizeMedication = (med: PrescribedMedication) => {
-  //   if (med.nameofmedicine && med.frequency) {
-  //     return { nameofmedicine: med.nameofmedicine, frequency: med.frequency };
-  //   }
-  //   // Handle the old format where med is {medName: frequency}
-  //   const medName = Object.keys(med)[0];
-  //   return { nameofmedicine: medName, frequency: med[medName] };
-  // };
-
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
@@ -147,7 +146,7 @@ const Report = () => {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="mt-4 text-lg text-gray-700">Loading patient data...</p>
         </div>
       </div>
@@ -157,135 +156,213 @@ const Report = () => {
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50 font-sans relative">
       {/* Mobile Header with Menu Button */}
-      <div className="md:hidden bg-zinc-900 text-white p-4 flex justify-between items-center shadow-lg">
-        <h2 className="text-xl font-bold flex items-center">
-          <FileText className="mr-2 text-purple-400" />
-          Patient Records
-        </h2>
-        <button
-          onClick={toggleSidebar}
-          className="p-2 rounded-full bg-zinc-800"
-        >
-          {sidebarOpen ? (
-            <X className="h-6 w-6 text-purple-400" />
-          ) : (
-            <Menu className="h-6 w-6 text-purple-400" />
-          )}
-        </button>
+      <div className="md:hidden bg-white text-gray-900 p-4 flex justify-between items-center shadow-sm sticky top-0 z-10">
+        <Link href="/" className="text-xl font-bold flex items-center">
+          <Mic className="mr-2 text-teal-600" />
+          <span className="bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+            VoiceMD
+          </span>
+        </Link>
+        <div className="flex items-center">
+          <Link
+            href="/dashboard"
+            className="mr-3 flex items-center text-sm font-medium text-gray-700 hover:text-teal-600 transition-colors"
+          >
+            <Home className="h-5 w-5 mr-1" />
+            <span className="hidden sm:inline">Dashboard</span>
+          </Link>
+          <button
+            onClick={toggleSidebar}
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            aria-label="Toggle sidebar"
+          >
+            {sidebarOpen ? (
+              <X className="h-6 w-6 text-gray-700" />
+            ) : (
+              <Menu className="h-6 w-6 text-gray-700" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Sidebar - Fixed position on mobile when open */}
       <div
-        className={`bg-zinc-900 text-white p-6 shadow-xl print:hidden 
+        className={`bg-white text-gray-900 shadow-sm border-r border-gray-100 print:hidden 
         ${
           sidebarOpen
             ? "fixed inset-0 z-50 pt-16 overflow-y-auto transition-all duration-300 ease-in-out"
             : "hidden"
         } 
-        md:static md:block md:w-72 md:z-auto md:pt-6`}
+        md:static md:block md:w-80 md:z-auto md:pt-6`}
       >
-        <h2 className="text-2xl font-bold mb-8 flex items-center">
-          <FileText className="mr-2 text-purple-400" />
-          Patient Records
-        </h2>
-
-        <div className="space-y-3">
-          {visits.map((visit, index) => (
-            <button
-              key={visit.id}
-              onClick={() => handleVisitChange(visit.id, index)}
-              className={`w-full px-5 py-3 text-left rounded-lg transition-all duration-300 hover:bg-zinc-700 flex items-center ${
-                activeVisitIndex === index
-                  ? "bg-zinc-700/80 border-l-4 border-purple-500 pl-4"
-                  : "bg-zinc-800/50"
-              }`}
-            >
-              <div
-                className={`h-8 w-8 rounded-full flex items-center justify-center mr-3 
-                ${
-                  activeVisitIndex === index ? "bg-purple-500" : "bg-zinc-700"
-                }`}
-              >
-                {index + 1}
-              </div>
-              <div>
-                <div className="font-medium">Visit {index + 1}</div>
-                <div className="text-xs text-zinc-400">{visit?.date}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-
+        {/* Mobile Close Button - Only visible when sidebar is open on mobile */}
         <button
-          onClick={handlePrint}
-          className="w-full mt-8 px-5 py-3 bg-purple-600 text-white rounded-lg shadow-lg hover:bg-purple-700 transition-all duration-300 flex items-center justify-center"
+          onClick={toggleSidebar}
+          className="md:hidden absolute top-4 right-4 p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors z-10"
+          aria-label="Close sidebar"
         >
-          <Printer className="mr-2 h-5 w-5" />
-          Print Report
+          <X className="h-5 w-5 text-gray-700" />
         </button>
+
+        <div className="p-6">
+          <Link
+            href="/"
+            className="block text-2xl font-bold mb-2 flex items-center"
+          >
+            <Mic className="mr-2 text-teal-600" />
+            <span className="bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+              VoiceMD
+            </span>
+          </Link>
+          <p className="text-gray-500 mb-4">Patient Medical Records</p>
+
+          <Link
+            href="/dashboard"
+            className="flex items-center text-gray-700 hover:text-teal-600 mb-8 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Link>
+
+          <div className="mb-6">
+            <h3 className="text-sm uppercase tracking-wider text-gray-500 font-medium mb-3 flex items-center">
+              <Calendar className="h-4 w-4 mr-2" />
+              Visit History
+            </h3>
+            <div className="space-y-2">
+              {visits.map((visit, index) => (
+                <button
+                  key={visit.id}
+                  onClick={() => handleVisitChange(visit.id, index)}
+                  className={`w-full px-4 py-3 text-left rounded-lg transition-all duration-200 flex items-center ${
+                    activeVisitIndex === index
+                      ? "bg-teal-50 border-l-4 border-teal-500 text-teal-700"
+                      : "bg-white hover:bg-gray-50 text-gray-700"
+                  }`}
+                >
+                  <div
+                    className={`h-9 w-9 rounded-full flex items-center justify-center mr-3 
+                    ${
+                      activeVisitIndex === index
+                        ? "bg-teal-500 text-white"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    {index + 1}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium">Visit {index + 1}</div>
+                    <div className="text-xs text-gray-500 flex items-center">
+                      <CalendarIcon className="h-3 w-3 mr-1" />
+                      {visit?.date}
+                    </div>
+                  </div>
+                  {activeVisitIndex === index && (
+                    <ChevronRight className="h-5 w-5 text-teal-500" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={handlePrint}
+            className="w-full px-5 py-3 bg-teal-600 text-white rounded-lg shadow-sm hover:bg-teal-700 transition-all duration-200 flex items-center justify-center"
+          >
+            <Printer className="mr-2 h-5 w-5" />
+            Print Report
+          </button>
+        </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 p-4 md:p-8 overflow-auto">
         {/* Header Card */}
-        <div className="bg-white rounded-2xl shadow-lg mb-8 overflow-hidden">
-          <div className="bg-gradient-to-r from-purple-600 to-pink-500 p-4 md:p-6 text-white">
-            <div className="flex items-center flex-wrap gap-y-2">
-              <div className="h-12 w-12 bg-white/20 rounded-full flex items-center justify-center mr-4">
-                <User className="h-6 w-6" />
+        <div className="bg-white rounded-xl shadow-sm mb-8 overflow-hidden">
+          <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-6 md:p-8 text-white">
+            <div className="flex flex-col md:flex-row md:items-center gap-6">
+              <div className="h-20 w-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center flex-shrink-0 mx-auto md:mx-0">
+                <User className="h-10 w-10" />
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold break-all">
-                {patient?.name}
-              </h1>
-            </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-white/90 ml-0 md:ml-16">
-              <p className="flex items-center">
-                <span className="bg-white/20 rounded-full h-6 w-6 flex items-center justify-center mr-2">
-                  {patient?.age}
-                </span>
-                years old
-              </p>
-              <p>{patient?.gender}</p>
-              <p className="break-all">{patient?.phone}</p>
-              <p className="break-all">{patient?.email}</p>
+              <div className="text-center md:text-left">
+                <h1 className="text-2xl md:text-3xl font-bold">
+                  {patient?.name}
+                </h1>
+
+                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-3">
+                  <div>
+                    <span className="text-xs text-white/70 block">Age</span>
+                    <span className="text-lg font-semibold">
+                      {patient?.age} years
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-xs text-white/70 block">Gender</span>
+                    <span className="text-lg font-semibold">
+                      {patient?.gender}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-xs text-white/70 block">Phone</span>
+                    <span className="text-base">{patient?.phone}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-xs text-white/70 block">Email</span>
+                    <span className="text-base">{patient?.email}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="p-4 md:p-6">
-            <h3 className="font-semibold text-gray-700 mb-3 flex items-center">
-              <Heart className="h-5 w-5 text-pink-500 mr-2 flex-shrink-0" />
+          <div className="p-6">
+            <h3 className="font-semibold text-gray-700 mb-4 flex items-center">
+              <Heart className="h-5 w-5 text-teal-600 mr-2 flex-shrink-0" />
               Medical History
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <div className="text-sm text-gray-500 mb-1">
-                  Chronic Diseases
+                <div className="text-sm text-gray-500 mb-2 flex items-center">
+                  <Activity className="h-4 w-4 mr-1 text-teal-600" />
+                  Chronic Conditions
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {patient?.medicalHistory?.disease.map((disease, i) => (
-                    <span
-                      key={i}
-                      className="bg-pink-100 text-pink-800 px-2 py-1 rounded-full text-sm"
-                    >
-                      {disease}
-                    </span>
-                  ))}
+                  {patient?.medicalHistory?.disease.length ? (
+                    patient?.medicalHistory?.disease.map((disease, i) => (
+                      <span
+                        key={i}
+                        className="bg-teal-50 text-teal-700 px-3 py-1 rounded-full text-sm"
+                      >
+                        {disease}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-gray-500 text-sm">None reported</span>
+                  )}
                 </div>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <div className="text-sm text-gray-500 mb-1">
+                <div className="text-sm text-gray-500 mb-2 flex items-center">
+                  <Pill className="h-4 w-4 mr-1 text-teal-600" />
                   Active Medications
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {patient?.medicalHistory?.active_med.map((med, i) => (
-                    <span
-                      key={i}
-                      className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-sm"
-                    >
-                      {med}
-                    </span>
-                  ))}
+                  {patient?.medicalHistory?.active_med.length ? (
+                    patient?.medicalHistory?.active_med.map((med, i) => (
+                      <span
+                        key={i}
+                        className="bg-teal-50 text-teal-700 px-3 py-1 rounded-full text-sm"
+                      >
+                        {med}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-gray-500 text-sm">None reported</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -294,13 +371,15 @@ const Report = () => {
 
         {/* Active Visit Badge for Mobile */}
         {selectedVisit && activeVisitIndex !== null && (
-          <div className="md:hidden bg-zinc-800 text-white px-4 py-2 rounded-lg mb-4 flex items-center">
-            <div className="h-6 w-6 rounded-full bg-purple-500 flex items-center justify-center mr-2 text-sm">
+          <div className="md:hidden bg-white text-gray-900 px-4 py-3 rounded-lg mb-4 flex items-center shadow-sm border border-gray-100">
+            <div className="h-6 w-6 rounded-full bg-teal-500 text-white flex items-center justify-center mr-2 text-sm">
               {activeVisitIndex + 1}
             </div>
-            <div>
-              <span className="text-sm">Visit {activeVisitIndex + 1}</span>
-              <span className="text-xs text-zinc-400 ml-2">
+            <div className="flex-1">
+              <span className="text-sm font-medium">
+                Visit {activeVisitIndex + 1}
+              </span>
+              <span className="text-xs text-gray-500 ml-2">
                 {visits[activeVisitIndex].date}
               </span>
             </div>
@@ -308,126 +387,47 @@ const Report = () => {
         )}
 
         {selectedVisit ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left Column */}
-            <div className="space-y-4 md:space-y-6">
+            <div className="space-y-6">
               {/* Diagnosis Card */}
-              <div className="bg-white p-4 md:p-6 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl">
-                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center border-b border-gray-100 pb-2">
-                  <Activity className="mr-2 text-purple-600 flex-shrink-0" />
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md">
+                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center">
+                  <FileText className="mr-2 text-teal-600 flex-shrink-0" />
                   Diagnosis
                 </h2>
                 <div className="space-y-3">
-                  {selectedVisit?.diagnosis?.map((item, index) => (
-                    <div
-                      key={index}
-                      className="bg-gray-50 p-3 md:p-4 rounded-xl border-l-4 border-purple-500 text-gray-700 text-sm md:text-base"
-                    >
-                      {item}
+                  {selectedVisit?.diagnosis?.length ? (
+                    selectedVisit?.diagnosis?.map((item, index) => (
+                      <div
+                        key={index}
+                        className="bg-teal-50/70 p-4 rounded-xl border-l-4 border-teal-500 text-gray-700"
+                      >
+                        {item}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="bg-gray-50 p-4 rounded-xl text-gray-500 text-center">
+                      No diagnosis recorded for this visit
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Precautions Card */}
-              <div className="bg-white p-4 md:p-6 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl">
-                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center border-b border-gray-100 pb-2">
-                  <AlertCircle className="mr-2 text-orange-500 flex-shrink-0" />
-                  Precautions
-                </h2>
-                {selectedVisit?.prescriptions?.precautions && (
-                  <div className="space-y-3">
-                    {selectedVisit?.prescriptions?.precautions.map(
-                      (item, index) => (
-                        <div
-                          key={index}
-                          className="bg-orange-50 p-3 md:p-4 rounded-xl border-l-4 border-orange-400 text-gray-700 text-sm md:text-base"
-                        >
-                          {item}
-                        </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-4 md:space-y-6">
-              {/* Prescribed Medications Card */}
-              <div className="bg-white p-4 md:p-6 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl">
-                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center border-b border-gray-100 pb-2">
-                  <div className="h-6 w-6 bg-purple-600 rounded text-white flex items-center justify-center mr-2 flex-shrink-0">
-                    Rx
-                  </div>
-                  Prescribed Medications
-                </h2>
-                <div className="overflow-x-auto">
-                  <div className="rounded-xl border border-gray-200 min-w-full">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="bg-purple-50">
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm md:text-base">
-                            Medication
-                          </th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm md:text-base">
-                            <span className="flex items-center">
-                              <Clock className="h-4 w-4 mr-1 text-purple-500" />{" "}
-                              Dosage
-                            </span>
-                          </th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm md:text-base">
-                            Frequency
-                          </th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm md:text-base">
-                            Food Requirement
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedVisit?.prescriptions?.prescribe_meds.map(
-                          (med, index) => {
-                            // const normalizedMed = normalizeMedication(med);
-                            return (
-                              <tr
-                                key={index}
-                                className={`${
-                                  index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                                }`}
-                              >
-                                <td className="py-3 px-4 font-medium text-gray-700 border-t border-gray-100 text-sm md:text-base break-all">
-                                  {med?.nameofmedicine}
-                                </td>
-                                <td className="py-3 px-4 text-gray-600 border-t border-gray-100 text-sm md:text-base">
-                                  {med?.dosage}
-                                </td>
-                                <td className="py-3 px-4 text-gray-600 border-t border-gray-100 text-sm md:text-base">
-                                  {med?.frequency}
-                                </td>
-                                <td className="py-3 px-4 text-gray-600 border-t border-gray-100 text-sm md:text-base">
-                                  {med?.emptyStomach}
-                                </td>
-                              </tr>
-                            );
-                          }
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  )}
                 </div>
               </div>
 
               {/* Vital Stats Card */}
-              <div className="bg-white p-4 md:p-6 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl">
-                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center border-b border-gray-100 pb-2">
-                  <Activity className="mr-2 text-pink-600 flex-shrink-0" />
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md">
+                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center">
+                  <BarChart2 className="mr-2 text-teal-600 flex-shrink-0" />
                   Vital Statistics
                 </h2>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-pink-50 p-4 rounded-xl border border-pink-100">
-                    <p className="text-sm text-pink-700 mb-1">Blood Pressure</p>
-                    <p className="text-xl md:text-2xl font-bold text-pink-800">
+                  <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-4 rounded-xl border border-teal-100 shadow-sm">
+                    <p className="text-sm text-teal-700 mb-1 flex items-center">
+                      <Activity className="h-4 w-4 mr-1" />
+                      Blood Pressure
+                    </p>
+                    <p className="text-xl md:text-2xl font-bold text-teal-800">
                       {patient?.medicalHistory?.BP}{" "}
                       <span className="text-sm font-normal">mmHg</span>
                     </p>
@@ -435,8 +435,9 @@ const Report = () => {
 
                   {patient?.medicalHistory?.deficiencies &&
                     patient.medicalHistory.deficiencies.length > 0 && (
-                      <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
-                        <p className="text-sm text-purple-700 mb-1">
+                      <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-4 rounded-xl border border-teal-100 shadow-sm">
+                        <p className="text-sm text-teal-700 mb-1 flex items-center">
+                          <AlertCircle className="h-4 w-4 mr-1" />
                           Deficiencies
                         </p>
                         <div className="flex flex-wrap gap-2 mt-1">
@@ -444,7 +445,7 @@ const Report = () => {
                             (deficiency, i) => (
                               <span
                                 key={i}
-                                className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-sm"
+                                className="text-teal-700 px-3 py-1 rounded-md text-sm border-b-2 border-teal-300"
                               >
                                 {deficiency}
                               </span>
@@ -456,13 +457,112 @@ const Report = () => {
                 </div>
               </div>
             </div>
+
+            {/* Right Column */}
+            <div className="space-y-6">
+              {/* Prescribed Medications Card */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md">
+                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center">
+                  <Pill className="mr-2 text-teal-600 flex-shrink-0 h-6 w-6" />
+                  Prescribed Medications
+                </h2>
+                <div className="overflow-x-auto">
+                  {selectedVisit?.prescriptions?.prescribe_meds?.length ? (
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-teal-50/80 border-b border-teal-100">
+                          <th className="text-left py-3 px-4 font-semibold text-teal-800 rounded-tl-lg">
+                            Medication
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-teal-800">
+                            <span className="flex items-center">
+                              <Clock className="h-4 w-4 mr-1 text-teal-600" />{" "}
+                              Dosage
+                            </span>
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-teal-800">
+                            Frequency
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-teal-800 rounded-tr-lg">
+                            Food Requirement
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedVisit?.prescriptions?.prescribe_meds.map(
+                          (med, index) => (
+                            <tr
+                              key={index}
+                              className={`${
+                                index % 2 === 0 ? "bg-white" : "bg-teal-50/30"
+                              }`}
+                            >
+                              <td className="py-3 px-4 font-medium text-gray-700 text-sm md:text-base">
+                                {med?.nameofmedicine}
+                              </td>
+                              <td className="py-3 px-4 text-gray-600 text-sm md:text-base">
+                                {med?.dosage}
+                              </td>
+                              <td className="py-3 px-4 text-gray-600 text-sm md:text-base">
+                                {med?.frequency}
+                              </td>
+                              <td className="py-3 px-4 text-gray-600 text-sm md:text-base">
+                                {med?.emptyStomach}
+                              </td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="bg-gray-50 p-4 rounded-xl text-gray-500 text-center">
+                      No medications prescribed for this visit
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Precautions Card */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md">
+                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center">
+                  <AlertCircle className="mr-2 text-amber-500 flex-shrink-0" />
+                  Precautions & Recommendations
+                </h2>
+                {selectedVisit?.prescriptions?.precautions?.length ? (
+                  <div className="space-y-3">
+                    {selectedVisit?.prescriptions?.precautions.map(
+                      (item, index) => (
+                        <div
+                          key={index}
+                          className="bg-amber-50 p-4 rounded-xl border-l-4 border-amber-400 text-gray-700"
+                        >
+                          {item}
+                        </div>
+                      )
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 p-4 rounded-xl text-gray-500 text-center">
+                    No precautions recorded for this visit
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         ) : (
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow text-center">
+          <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 text-center">
             <div className="text-gray-500 text-lg">
-              {visits.length > 0
-                ? "Please select a visit from the sidebar to view details"
-                : "No visit records found for this patient"}
+              {visits.length > 0 ? (
+                <div className="flex flex-col items-center">
+                  <Calendar className="h-12 w-12 text-teal-500 mb-4" />
+                  <p>Please select a visit from the sidebar to view details</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
+                  <p>No visit records found for this patient</p>
+                </div>
+              )}
             </div>
           </div>
         )}
