@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Search, Mic, Bell } from "lucide-react";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,8 @@ export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useUser();
+  const doctorId = user?.id;
 
   const addPatient = (patient: Patient) => {
     setPatients([
@@ -56,6 +58,7 @@ export default function Dashboard() {
     if (searchQuery === "") {
       getPatients();
     } else {
+      const api = `/api/search?doctorId=${doctorId}`;
       const results = await debouncedSearch(searchQuery);
       console.log(results);
 
@@ -67,7 +70,7 @@ export default function Dashboard() {
     setIsLoading(true);
     try {
       // Fetch data from API
-      const response = await fetch("/api/patients?page=1&doctorId=2ye8w7ty8f7");
+      const response = await fetch(`/api/patients?page=1&doctorId=${doctorId}`);
       const data = await response.json();
       console.log(data);
 
