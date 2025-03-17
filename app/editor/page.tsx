@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, Plus, Save, Stethoscope, Mic, XCircle } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Loading from "../Loading";
 
 // Define interfaces for type safety
 interface Medication {
@@ -232,16 +233,7 @@ const EditorPage = () => {
 
   // Loader component
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-lg text-gray-600 font-medium">
-            Loading visit data...
-          </p>
-        </div>
-      </div>
-    );
+    return <Loading />;
   }
 
   // Main content (only shown when not loading)

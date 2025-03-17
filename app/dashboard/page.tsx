@@ -12,6 +12,7 @@ import { Patient, PatientsTable } from "@/components/patients-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import debounce from "lodash/debounce";
+import Loading from "../Loading";
 
 const debouncedSearch = debounce(
   async (
@@ -43,7 +44,7 @@ export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const doctorId = user?.id;
 
   const addPatient = (patient: Patient) => {
@@ -68,9 +69,12 @@ export default function Dashboard() {
   };
   const getPatients = async () => {
     setIsLoading(true);
+
     try {
       // Fetch data from API
       const response = await fetch(`/api/patients?page=1&doctorId=${doctorId}`);
+      console.log(doctorId);
+
       const data = await response.json();
       console.log(data);
 
@@ -81,18 +85,16 @@ export default function Dashboard() {
       setIsLoading(false);
     }
   };
-
-  // useEffect(() => {
-  //   getPatients();
-  // }, []);
   useEffect(() => {
-    filteredPatients();
-  }, [searchQuery]);
+    if (doctorId) {
+      filteredPatients();
+    }
+  }, [searchQuery, doctorId]);
 
-  // Add a useEffect for initial data loading
-  useEffect(() => {
-    getPatients();
-  }, []);
+  // Render loading UI conditionally after hooks
+  if (!isLoaded || !doctorId) {
+    return <Loading />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
