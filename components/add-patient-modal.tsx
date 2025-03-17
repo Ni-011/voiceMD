@@ -3,7 +3,7 @@
 import type React from "react";
 
 import { useState, useRef, useEffect } from "react";
-import { Mic, MicOff, Languages } from "lucide-react";
+import { Mic, MicOff, Languages, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 
 interface AddPatientModalProps {
   isOpen: boolean;
@@ -34,12 +36,15 @@ export function AddPatientModal({
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("Male");
-  const [condition, setCondition] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isHindi, setIsHindi] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const { user } = useUser();
 
-  // For speech recognition
   const recognitionRef = useRef<any>(null);
   const finalTranscriptRef = useRef("");
   const isComponentMounted = useRef(true);
@@ -218,44 +223,94 @@ export function AddPatientModal({
     setIsHindi(!isHindi);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     const patient = {
       name,
-      age: Number.parseInt(age),
+      age,
       gender,
-      condition: condition || transcript,
-      lastVisit: new Date().toISOString().split("T")[0],
+      phone,
+      email,
+      doctorId: user?.id,
+      text: transcript,
     };
-    onAddPatient(patient);
-    resetForm();
-    onClose();
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/patients", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(patient),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(data);
+        if (data.new_patient) onAddPatient(data.new_patient);
+
+        resetForm();
+        onClose();
+        router.push(
+          `/editor?patientId=${data.new_visit.patientId}&visitId=${data.new_visit.id}`
+        );
+      } else {
+        console.error("Failed to add patient:", response.statusText);
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error("Error adding patient:", error);
+      setIsLoading(false);
+    }
   };
 
   const resetForm = () => {
     setName("");
     setAge("");
     setGender("Male");
-    setCondition("");
+    setPhone("");
+    setEmail("");
     setTranscript("");
     setIsRecording(false);
     finalTranscriptRef.current = "";
     cleanupSpeechRecognition();
   };
 
+  // Loading overlay component
+  const LoadingOverlay = () => (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
+      <div className="bg-white rounded-lg p-6 shadow-xl flex flex-col items-center">
+        <div className="w-16 h-16 mb-4 relative">
+          <div className="absolute inset-0 rounded-full border-4 border-gray-100"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-black animate-spin"></div>
+        </div>
+        <p className="text-lg font-medium">Adding patient...</p>
+        <p className="text-sm text-gray-500 mt-1">Please wait</p>
+      </div>
+    </div>
+  );
+
   return (
     <Dialog
-      open={isOpen}
+      open={isOpen || isLoading}
       onOpenChange={(open) => {
-        if (!open) {
+        if (!open && !isLoading) {
           resetForm();
           onClose();
         }
       }}
     >
-      <DialogContent className="sm:min-w-[500px] sm:max-w-[500px] md:min-w-[600px] md:max-w-[600px] lg:min-w-[600px] lg:max-w-[600px] xl:min-w-[600px] xl:max-w-[600px] p-4 sm:p-5 w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="gap-0 text-center sm:text-left">
-          <DialogTitle className="text-xl sm:text-2xl font-semibold leading-none mb-0">
+      <DialogContent
+        className={`w-[850px] max-w-[95vw] p-4 sm:p-5 max-h-[92vh] lg:w-[600px] lg:max-w-[600px] ${
+          isLoading ? "overflow-hidden" : "overflow-y-auto"
+        }`}
+      >
+        {isLoading && <LoadingOverlay />}
+        <DialogHeader className="mb-2">
+          <DialogTitle className="text-xl sm:text-2xl font-semibold">
             Add New Patient
           </DialogTitle>
           <DialogDescription className="text-sm -mt-1">
@@ -338,17 +393,30 @@ export function AddPatientModal({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-3">
               <Label
-                htmlFor="condition"
+                htmlFor="phone"
                 className="sm:text-right text-sm font-medium"
               >
-                Condition
+                Phone
               </Label>
               <Input
-                id="condition"
-                value={condition}
-                onChange={(e) => setCondition(e.target.value)}
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
                 className="sm:col-span-3 py-2 text-sm"
-                placeholder="Or use voice recording below"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-3">
+              <Label
+                htmlFor="email"
+                className="sm:text-right text-sm font-medium"
+              >
+                Email
+              </Label>
+              <Input
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="sm:col-span-3 py-2 text-sm"
               />
             </div>
 
@@ -412,15 +480,24 @@ export function AddPatientModal({
               type="button"
               variant="outline"
               onClick={onClose}
-              className="bg-white text-black border-gray-200 hover:bg-gray-50 px-4 py-2 text-sm h-9 cursor-pointer w-full sm:w-auto"
+              disabled={isLoading}
+              className="bg-white text-black border-gray-200 hover:bg-gray-50 px-4 py-2 text-sm h-9 cursor-pointer w-full sm:w-auto disabled:opacity-50"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="bg-black hover:bg-gray-800 text-white px-4 py-2 text-sm h-9 cursor-pointer w-full sm:w-auto"
+              disabled={isLoading}
+              className="bg-black hover:bg-gray-800 text-white px-4 py-2 text-sm h-9 cursor-pointer w-full sm:w-auto disabled:opacity-50"
             >
-              Add Patient
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                "Add Patient"
+              )}
             </Button>
           </DialogFooter>
         </form>

@@ -15,16 +15,17 @@ export const patientTable = pgTable("patients", {
   gender: varchar("gender", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 255 }),
   email: varchar("email", { length: 255 }),
-  address: varchar("address", { length: 255 }),
   medicalHistory: json("medicalHistory").default({}),
   doctorId: varchar("doctorId", { length: 255 }).notNull(),
+  lastVisit: timestamp("lastVisit").defaultNow().notNull(),
+  condition: varchar("condition", { length: 255 }),
+  status: varchar("status", { length: 255 }),
 });
 
 export const visitsTable = pgTable("visits", {
   id: uuid("id").primaryKey().defaultRandom(),
   diagnosis: json("diagnosis").default([]),
   prescriptions: json("prescriptions").default([]),
-  precautions: json("precautions").default([]),
   patientId: uuid("patientId").references(() => patientTable.id, {
     onDelete: "cascade",
   }),

@@ -1,78 +1,100 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Search, Mic, Bell } from "lucide-react";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddPatientModal } from "@/components/add-patient-modal";
-import { PatientsTable } from "@/components/patients-table";
+import { Patient, PatientsTable } from "@/components/patients-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import debounce from "lodash/debounce";
+import Loading from "../Loading";
 
-// Sample patient data
-const initialPatients = [
-  {
-    id: "1",
-    name: "Rahul Sharma",
-    age: 45,
-    gender: "Male",
-    condition: "Hypertension",
-    lastVisit: "2023-11-15",
+const debouncedSearch = debounce(
+  async (
+    query,
+    endpoint = "/api/search?doctorId=2ye8w7ty8f7",
+    minLength = 2
+  ) => {
+    if (query.length < minLength) {
+      return [];
+    }
+
+    try {
+      const response = await fetch(`${endpoint}&name=${query}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch results");
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Search error:", error);
+      return [];
+    }
   },
-  {
-    id: "2",
-    name: "Priya Patel",
-    age: 32,
-    gender: "Female",
-    condition: "Diabetes Type 2",
-    lastVisit: "2023-12-01",
-  },
-  {
-    id: "3",
-    name: "Amit Singh",
-    age: 28,
-    gender: "Male",
-    condition: "Asthma",
-    lastVisit: "2023-12-10",
-  },
-  {
-    id: "4",
-    name: "Neha Gupta",
-    age: 41,
-    gender: "Female",
-    condition: "Arthritis",
-    lastVisit: "2023-12-05",
-  },
-  {
-    id: "5",
-    name: "Vikram Malhotra",
-    age: 52,
-    gender: "Male",
-    condition: "Coronary Artery Disease",
-    lastVisit: "2023-11-28",
-  },
-];
+  300
+);
 
 export default function Dashboard() {
-  const [patients, setPatients] = useState(initialPatients);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoaded } = useUser();
+  const doctorId = user?.id;
 
-  const addPatient = (patient: any) => {
+  const addPatient = (patient: Patient) => {
     setPatients([
       ...patients,
       { ...patient, id: (patients.length + 1).toString() },
     ]);
   };
 
-  const filteredPatients = patients.filter(
-    (patient) =>
-      patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.condition.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPatients = async () => {
+    setIsLoading(true);
+    if (searchQuery === "") {
+      getPatients();
+    } else {
+      const api = `/api/search?doctorId=${doctorId}`;
+      const results = await debouncedSearch(searchQuery);
+      console.log(results);
+
+      setPatients(results);
+      setIsLoading(false);
+    }
+  };
+  const getPatients = async () => {
+    setIsLoading(true);
+
+    try {
+      // Fetch data from API
+      const response = await fetch(`/api/patients?page=1&doctorId=${doctorId}`);
+      console.log(doctorId);
+
+      const data = await response.json();
+      console.log(data);
+
+      setPatients(data?.data);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (doctorId) {
+      filteredPatients();
+    }
+  }, [searchQuery, doctorId]);
+
+  // Render loading UI conditionally after hooks
+  if (!isLoaded || !doctorId) {
+    return <Loading />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
@@ -136,7 +158,7 @@ export default function Dashboard() {
                     Total Patients
                   </p>
                   <h3 className="mt-1 text-2xl sm:text-3xl font-bold">
-                    {patients.length}
+                    {patients?.length ?? 0}
                   </h3>
                 </div>
                 <div className="rounded-full bg-blue-500 p-2 sm:p-3 text-white">
@@ -164,13 +186,101 @@ export default function Dashboard() {
           <Card className="overflow-hidden border-none bg-gradient-to-br from-green-100 to-green-50 shadow-md">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="w-full">
                   <p className="text-xs sm:text-sm font-medium text-muted-foreground">
-                    Appointments Today
+                    Gender Distribution
                   </p>
-                  <h3 className="mt-1 text-2xl sm:text-3xl font-bold">8</h3>
+                  <div className="mt-3 flex flex-col gap-2 w-full">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <span className="text-sm font-medium">Male</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-lg font-bold">
+                          {patients?.filter(
+                            (patient) =>
+                              patient.gender?.toLowerCase() === "male"
+                          )?.length ?? 0}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          (
+                          {Math.round(
+                            ((patients?.filter(
+                              (patient) =>
+                                patient.gender?.toLowerCase() === "male"
+                            )?.length ?? 0) /
+                              (patients?.length || 1)) *
+                              100
+                          )}
+                          %)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-blue-100 rounded-full h-2">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full"
+                        style={{
+                          width: `${
+                            patients?.length
+                              ? (patients.filter(
+                                  (patient) =>
+                                    patient.gender?.toLowerCase() === "male"
+                                ).length /
+                                  patients.length) *
+                                100
+                              : 0
+                          }%`,
+                        }}
+                      ></div>
+                    </div>
+
+                    <div className="flex justify-between items-center mt-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-pink-500"></div>
+                        <span className="text-sm font-medium">Female</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-lg font-bold">
+                          {patients?.filter(
+                            (patient) =>
+                              patient.gender?.toLowerCase() === "female"
+                          )?.length ?? 0}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          (
+                          {Math.round(
+                            ((patients?.filter(
+                              (patient) =>
+                                patient.gender?.toLowerCase() === "female"
+                            )?.length ?? 0) /
+                              (patients?.length || 1)) *
+                              100
+                          )}
+                          %)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-pink-100 rounded-full h-2">
+                      <div
+                        className="bg-pink-500 h-2 rounded-full"
+                        style={{
+                          width: `${
+                            patients?.length
+                              ? (patients.filter(
+                                  (patient) =>
+                                    patient.gender?.toLowerCase() === "female"
+                                ).length /
+                                  patients.length) *
+                                100
+                              : 0
+                          }%`,
+                        }}
+                      ></div>
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded-full bg-green-500 p-2 sm:p-3 text-white">
+                <div className="rounded-full bg-green-500 p-2 sm:p-3 text-white ml-4">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="24"
@@ -183,23 +293,10 @@ export default function Dashboard() {
                     strokeLinejoin="round"
                     className="h-5 w-5 sm:h-6 sm:w-6"
                   >
-                    <rect
-                      width="18"
-                      height="18"
-                      x="3"
-                      y="4"
-                      rx="2"
-                      ry="2"
-                    ></rect>
-                    <line x1="16" x2="16" y1="2" y2="6"></line>
-                    <line x1="8" x2="8" y1="2" y2="6"></line>
-                    <line x1="3" x2="21" y1="10" y2="10"></line>
-                    <path d="M8 14h.01"></path>
-                    <path d="M12 14h.01"></path>
-                    <path d="M16 14h.01"></path>
-                    <path d="M8 18h.01"></path>
-                    <path d="M12 18h.01"></path>
-                    <path d="M16 18h.01"></path>
+                    <path d="M10 15a7 7 0 1 0 0-10 7 7 0 0 0 0 10Z" />
+                    <path d="M16 15a7 7 0 1 0 4 10" />
+                    <line x1="8.5" x2="8.5" y1="14" y2="20" />
+                    <line x1="5.5" x2="11.5" y1="17" y2="17" />
                   </svg>
                 </div>
               </div>
@@ -210,9 +307,37 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm font-medium text-muted-foreground">
-                    Voice Notes
+                    Patient Status
                   </p>
-                  <h3 className="mt-1 text-2xl sm:text-3xl font-bold">24</h3>
+                  <div className="mt-1 flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                      <span className="text-sm font-medium">Active:</span>
+                      <span className="text-lg font-bold">
+                        {patients?.filter(
+                          (patient) => patient.status === "Active"
+                        ).length ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-orange-500"></div>
+                      <span className="text-sm font-medium">Inactive:</span>
+                      <span className="text-lg font-bold">
+                        {patients?.filter(
+                          (patient) => patient.status === "Inactive"
+                        ).length ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                      <span className="text-sm font-medium">Discharged:</span>
+                      <span className="text-lg font-bold">
+                        {patients?.filter(
+                          (patient) => patient.status === "Discharged"
+                        ).length ?? 0}
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <div className="rounded-full bg-purple-500 p-2 sm:p-3 text-white">
                   <svg
@@ -227,9 +352,10 @@ export default function Dashboard() {
                     strokeLinejoin="round"
                     className="h-5 w-5 sm:h-6 sm:w-6"
                   >
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                    <line x1="12" x2="12" y1="19" y2="22"></line>
+                    <path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5" />
+                    <path d="M17 17H8a6 6 0 0 1-5.3-8.8" />
+                    <circle cx="19" cy="19" r="3" />
+                    <path d="m15 21 1.5-1.5" />
                   </svg>
                 </div>
               </div>
@@ -272,7 +398,7 @@ export default function Dashboard() {
         </div>
 
         <div className="rounded-xl border bg-card shadow-sm max-w-[1200px] mx-auto overflow-x-auto">
-          <PatientsTable patients={filteredPatients} />
+          <PatientsTable patients={patients} isLoading={isLoading} />
         </div>
       </main>
 

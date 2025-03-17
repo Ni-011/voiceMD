@@ -130,3 +130,13 @@ p {
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  @page {
+    margin: 0; /* Removes default margins where the browser puts headers */
+  }
+  body {
+    margin: 0;
+    padding: 0;
+  }
+}
