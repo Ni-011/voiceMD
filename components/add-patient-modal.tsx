@@ -20,6 +20,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 
 interface AddPatientModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export function AddPatientModal({
   const [isHindi, setIsHindi] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { user } = useUser();
 
   const recognitionRef = useRef<any>(null);
   const finalTranscriptRef = useRef("");
@@ -223,13 +225,14 @@ export function AddPatientModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     const patient = {
       name,
       age,
       gender,
       phone,
       email,
-      doctorId: "2ye8w7ty8f7",
+      doctorId: user?.id,
       text: transcript,
     };
 

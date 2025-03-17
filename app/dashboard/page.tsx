@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Search, Mic, Bell } from "lucide-react";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Patient, PatientsTable } from "@/components/patients-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import debounce from "lodash/debounce";
+import Loading from "../Loading";
 
 const debouncedSearch = debounce(
   async (
@@ -43,6 +44,8 @@ export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoaded } = useUser();
+  const doctorId = user?.id;
 
   const addPatient = (patient: Patient) => {
     setPatients([
@@ -56,6 +59,7 @@ export default function Dashboard() {
     if (searchQuery === "") {
       getPatients();
     } else {
+      const api = `/api/search?doctorId=${doctorId}`;
       const results = await debouncedSearch(searchQuery);
       console.log(results);
 
@@ -65,9 +69,12 @@ export default function Dashboard() {
   };
   const getPatients = async () => {
     setIsLoading(true);
+
     try {
       // Fetch data from API
-      const response = await fetch("/api/patients?page=1&doctorId=2ye8w7ty8f7");
+      const response = await fetch(`/api/patients?page=1&doctorId=${doctorId}`);
+      console.log(doctorId);
+
       const data = await response.json();
       console.log(data);
 
@@ -78,18 +85,16 @@ export default function Dashboard() {
       setIsLoading(false);
     }
   };
-
-  // useEffect(() => {
-  //   getPatients();
-  // }, []);
   useEffect(() => {
-    filteredPatients();
-  }, [searchQuery]);
+    if (doctorId) {
+      filteredPatients();
+    }
+  }, [searchQuery, doctorId]);
 
-  // Add a useEffect for initial data loading
-  useEffect(() => {
-    getPatients();
-  }, []);
+  // Render loading UI conditionally after hooks
+  if (!isLoaded || !doctorId) {
+    return <Loading />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
