@@ -114,6 +114,35 @@ const Report = () => {
     fetchData();
   }, []);
 
+  // Add print-specific styles
+  useEffect(() => {
+    // Add ah style element for print media
+    const style = document.createElement("style");
+    style.innerHTML = `
+      @media print {
+        @page {
+          size: portrait;
+          margin: 1cm;
+        }
+        body {
+          print-color-adjust: exact;
+          -webkit-print-color-adjust: exact;
+        }
+        .shadow-sm, .shadow-md, .hover\\:shadow-md {
+          box-shadow: none !important;
+        }
+        .rounded-xl, .rounded-lg {
+          border-radius: 4px !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   const handleVisitChange = async (visitId: string, index: number) => {
     setLoading(true);
     try {
@@ -135,7 +164,10 @@ const Report = () => {
   };
 
   const handlePrint = () => {
-    window.print();
+    // Add a small delay to ensure the print dialog opens after any state updates
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
   const toggleSidebar = () => {
@@ -154,9 +186,9 @@ const Report = () => {
   }
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50 font-sans relative">
+    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50 font-sans relative print:bg-white print:min-h-0">
       {/* Mobile Header with Menu Button */}
-      <div className="md:hidden bg-white text-gray-900 p-4 flex justify-between items-center shadow-sm sticky top-0 z-10">
+      <div className="md:hidden bg-white text-gray-900 p-4 flex justify-between items-center shadow-sm sticky top-0 z-10 print:hidden">
         <Link href="/" className="text-xl font-bold flex items-center">
           <Mic className="mr-2 text-teal-600" />
           <span className="bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
@@ -267,7 +299,7 @@ const Report = () => {
 
           <button
             onClick={handlePrint}
-            className="w-full px-5 py-3 bg-teal-600 text-white rounded-lg shadow-sm hover:bg-teal-700 transition-all duration-200 flex items-center justify-center"
+            className="w-full cursor-pointer px-5 py-3 bg-teal-600 text-white rounded-lg shadow-sm hover:bg-teal-700 transition-all duration-200 flex items-center justify-center"
           >
             <Printer className="mr-2 h-5 w-5" />
             Print Report
@@ -276,9 +308,9 @@ const Report = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-4 md:p-8 overflow-auto">
+      <div className="flex-1 p-4 md:p-8 overflow-auto print:p-0 print:overflow-visible print:m-0">
         {/* Header Card */}
-        <div className="bg-white rounded-xl shadow-sm mb-8 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm mb-8 overflow-hidden print:mb-4 print:border print:border-gray-200">
           <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-6 md:p-8 text-white">
             <div className="flex flex-col md:flex-row md:items-center gap-6">
               <div className="h-20 w-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center flex-shrink-0 mx-auto md:mx-0">
@@ -371,7 +403,7 @@ const Report = () => {
 
         {/* Active Visit Badge for Mobile */}
         {selectedVisit && activeVisitIndex !== null && (
-          <div className="md:hidden bg-white text-gray-900 px-4 py-3 rounded-lg mb-4 flex items-center shadow-sm border border-gray-100">
+          <div className="md:hidden bg-white text-gray-900 px-4 py-3 rounded-lg mb-4 flex items-center shadow-sm border border-gray-100 print:hidden">
             <div className="h-6 w-6 rounded-full bg-teal-500 text-white flex items-center justify-center mr-2 text-sm">
               {activeVisitIndex + 1}
             </div>
@@ -387,11 +419,11 @@ const Report = () => {
         )}
 
         {selectedVisit ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:gap-4">
             {/* Left Column */}
-            <div className="space-y-6">
+            <div className="space-y-6 print:space-y-4">
               {/* Diagnosis Card */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md print:p-4 print:hover:shadow-none print:shadow-none">
                 <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center">
                   <FileText className="mr-2 text-teal-600 flex-shrink-0" />
                   Diagnosis
@@ -415,7 +447,7 @@ const Report = () => {
               </div>
 
               {/* Vital Stats Card */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md print:p-4 print:hover:shadow-none print:shadow-none">
                 <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center">
                   <BarChart2 className="mr-2 text-teal-600 flex-shrink-0" />
                   Vital Statistics
@@ -459,9 +491,9 @@ const Report = () => {
             </div>
 
             {/* Right Column */}
-            <div className="space-y-6">
+            <div className="space-y-6 print:space-y-4">
               {/* Prescribed Medications Card */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md print:p-4 print:hover:shadow-none print:shadow-none">
                 <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center">
                   <Pill className="mr-2 text-teal-600 flex-shrink-0 h-6 w-6" />
                   Prescribed Medications
@@ -523,7 +555,7 @@ const Report = () => {
               </div>
 
               {/* Precautions Card */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md print:p-4 print:hover:shadow-none print:shadow-none">
                 <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center">
                   <AlertCircle className="mr-2 text-amber-500 flex-shrink-0" />
                   Precautions & Recommendations
