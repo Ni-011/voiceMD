@@ -280,16 +280,9 @@ export function AddPatientModal({
   const LoadingOverlay = () => (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
       <div className="bg-white rounded-lg p-6 shadow-xl flex flex-col items-center">
-        <div className="relative w-16 h-16 mb-4">
-          <div className="absolute top-0 left-0 w-full h-full border-4 border-t-black border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-          <div
-            className="absolute top-1 left-1 w-14 h-14 border-4 border-t-transparent border-r-black border-b-transparent border-l-transparent rounded-full animate-spin"
-            style={{ animationDirection: "reverse", animationDuration: "0.8s" }}
-          ></div>
-          <div
-            className="absolute top-2 left-2 w-12 h-12 border-4 border-t-transparent border-r-transparent border-b-black border-l-transparent rounded-full animate-spin"
-            style={{ animationDuration: "1.2s" }}
-          ></div>
+        <div className="w-16 h-16 mb-4 relative">
+          <div className="absolute inset-0 rounded-full border-4 border-gray-100"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-black animate-spin"></div>
         </div>
         <p className="text-lg font-medium">Adding patient...</p>
         <p className="text-sm text-gray-500 mt-1">Please wait</p>
@@ -307,7 +300,11 @@ export function AddPatientModal({
         }
       }}
     >
-      <DialogContent className="w-[850px] max-w-[95vw] p-4 sm:p-5 max-h-[92vh] lg:w-[600px] lg:max-w-[600px] overflow-y-auto">
+      <DialogContent
+        className={`w-[850px] max-w-[95vw] p-4 sm:p-5 max-h-[92vh] lg:w-[600px] lg:max-w-[600px] ${
+          isLoading ? "overflow-hidden" : "overflow-y-auto"
+        }`}
+      >
         {isLoading && <LoadingOverlay />}
         <DialogHeader className="mb-2">
           <DialogTitle className="text-xl sm:text-2xl font-semibold">

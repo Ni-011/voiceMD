@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 
 export interface Patient {
   id: string;
@@ -36,9 +37,15 @@ interface PatientsTableProps {
 }
 
 export function PatientsTable({
-  patients,
+  patients: initialPatients,
   isLoading = false,
 }: PatientsTableProps) {
+  const [patients, setPatients] = useState<Patient[]>(initialPatients || []);
+
+  useEffect(() => {
+    setPatients(initialPatients || []);
+  }, [initialPatients]);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat("en-US", {
@@ -49,35 +56,52 @@ export function PatientsTable({
   };
   const router = useRouter();
 
-  const getStatusBadge = (condition: string) => {
-    const conditions = {
-      Active: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  // Update patient status
+  const updatePatientStatus = async (patientId: string, status: string) => {
+    try {
+      const response = await fetch("/api/patients/status", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ patientId, status }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        // Update the local state
+        setPatients((currentPatients) =>
+          currentPatients.map((patient) =>
+            patient.id === patientId ? { ...patient, status } : patient
+          )
+        );
+      } else {
+        console.error("Failed to update patient status");
+      }
+    } catch (error) {
+      console.error("Error updating patient status:", error);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statuses = {
+      Active: "bg-green-100 text-green-800 border-green-200",
       Inactive: "bg-orange-100 text-orange-800 border-orange-200",
       Discharged: "bg-blue-100 text-blue-800 border-blue-200",
     };
 
-    for (const [key, value] of Object.entries(conditions)) {
-      if (condition === key) {
-        return (
-          <Badge
-            className={`${value} text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 font-medium`}
-          >
-            {condition}
-          </Badge>
-        );
-      }
-    }
+    const statusClass =
+      statuses[status as keyof typeof statuses] ||
+      "bg-gray-100 text-gray-800 border-gray-200";
 
-    // return (
-    //   <Badge
-    //     variant="outline"
-    //     className={`${
-    //       conditions[condition] as string
-    //     } text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 font-medium`}
-    //   >
-    //     Stable
-    //   </Badge>
-    // );
+    return (
+      <Badge
+        className={`${statusClass} text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 font-medium`}
+      >
+        {status || "Unknown"}
+      </Badge>
+    );
   };
 
   // Loading skeleton component
@@ -212,6 +236,44 @@ export function PatientsTable({
                         </DropdownMenuItem>
                         <DropdownMenuItem className="cursor-pointer">
                           Schedule appointment
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Update Status</DropdownMenuLabel>
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updatePatientStatus(patient.id, "Active");
+                          }}
+                        >
+                          <div className="flex items-center">
+                            <div className="h-2 w-2 rounded-full bg-green-500 mr-2"></div>
+                            Set as Active
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updatePatientStatus(patient.id, "Inactive");
+                          }}
+                        >
+                          <div className="flex items-center">
+                            <div className="h-2 w-2 rounded-full bg-orange-500 mr-2"></div>
+                            Set as Inactive
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updatePatientStatus(patient.id, "Discharged");
+                          }}
+                        >
+                          <div className="flex items-center">
+                            <div className="h-2 w-2 rounded-full bg-blue-500 mr-2"></div>
+                            Set as Discharged
+                          </div>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-destructive cursor-pointer">
