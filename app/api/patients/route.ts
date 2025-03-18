@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { patientTable, visitsTable } from "@/lib/db/schema";
 import { generate, patientIn } from "@/lib/gemni_api/genAi";
-import { and, count, desc, eq, or } from "drizzle-orm";
+import { and, count, desc, eq, or, sql } from "drizzle-orm";
 // import { NextApiRequest, NextApiResponse } from "next";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -73,12 +73,12 @@ export async function POST(req: NextRequest) {
         or(
           and(
             eq(patientTable.phone, phone),
-            eq(patientTable.name, name),
+            eq(sql`lower(${patientTable.name})`, name.toLowerCase()),
             eq(patientTable.doctorId, body.doctorId)
           ),
           and(
             eq(patientTable.email, email),
-            eq(patientTable.name, name),
+            eq(sql`lower(${patientTable.name})`, name.toLowerCase()),
             eq(patientTable.doctorId, body.doctorId)
           )
         )

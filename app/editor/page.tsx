@@ -33,7 +33,7 @@ const EditorPage = () => {
   const [visitData, setVisitData] = useState<VisitData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [subLoader, setSubLoader] = useState(false);
+  // const [subLoader, setSubLoader] = useState(false);
   const [isListening, setIsListening] = useState<{ [key: string]: boolean }>(
     {}
   );
@@ -152,7 +152,7 @@ const EditorPage = () => {
 
     setSaving(true);
     try {
-      setSubLoader(true);
+      // setSubLoader(true);
       const requestBody = {
         patientId: patientId,
         diagnosis: visitData.diagnosis,
@@ -205,7 +205,7 @@ const EditorPage = () => {
       });
     } finally {
       setSaving(false);
-      setSubLoader(false);
+      // setSubLoader(false);
     }
   };
 
