@@ -9,11 +9,23 @@ import {
   XCircle,
   CheckCircle,
   Loader2,
+  ClipboardList,
+  ShieldAlert,
+  Pill,
+  AlertCircle,
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Loading from "../Loading";
 import { useData } from "@/lib/store/datacontext";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Define interfaces for type safety
 interface Medication {
@@ -37,6 +49,7 @@ const EditorPage = () => {
   const [isListening, setIsListening] = useState<{ [key: string]: boolean }>(
     {}
   );
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
   const patientId = searchParams.get("patientId");
@@ -210,38 +223,17 @@ const EditorPage = () => {
   };
 
   const handleCancel = () => {
-    toast(
-      <div className="flex flex-col gap-3">
-        <div className="text-lg font-semibold text-gray-800">
-          Confirm Cancel
-        </div>
-        <div className="text-sm text-gray-600">
-          Are you sure you want to cancel? Any unsaved changes will be lost.
-        </div>
-        <div className="flex gap-3 mt-2">
-          <button
-            onClick={() => {
-              toast.dismiss();
-              router.push("/");
-            }}
-            className="px-4 py-2 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 transition-colors"
-          >
-            Yes, Cancel
-          </button>
-          <button
-            onClick={() => toast.dismiss()}
-            className="px-4 py-2 bg-emerald-500 text-white text-sm rounded-md hover:bg-emerald-600 transition-colors"
-          >
-            Continue Editing
-          </button>
-        </div>
-      </div>,
-      {
-        duration: 10000,
-        position: "top-center",
-        className: "minimal-confirmation-toast",
-      }
-    );
+    setShowCancelModal(true);
+  };
+
+  // Close the cancel modal
+  const closeCancelModal = () => {
+    setShowCancelModal(false);
+  };
+
+  // Confirm cancellation and navigate away
+  const confirmCancel = () => {
+    router.push("/");
   };
 
   // Handle voice input
@@ -321,20 +313,20 @@ const EditorPage = () => {
   // Main content (only shown when not loading)
   if (!visitData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
-          <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <p className="text-xl text-gray-800 font-medium mb-2">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8 max-w-md w-full text-center">
+          <XCircle className="h-12 w-12 sm:h-16 sm:w-16 text-red-500 mx-auto mb-3 sm:mb-4" />
+          <p className="text-lg sm:text-xl text-gray-800 font-medium mb-2">
             Error loading data
           </p>
-          <p className="text-gray-600 mb-6">
+          <p className="text-sm sm:text-base text-gray-600 mb-5 sm:mb-6">
             {!patientId
               ? "No patient ID provided. Please select a patient first."
               : "Failed to load visit data. Please try again."}
           </p>
           <button
             onClick={() => router.push("/")}
-            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
+            className="px-5 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all shadow-sm hover:shadow-md w-full sm:w-auto"
           >
             Return to Dashboard
           </button>
@@ -344,24 +336,28 @@ const EditorPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 font-sans">
-      <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg p-8 border border-gray-100">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/10 px-3 py-4 sm:px-4 sm:py-6 font-sans">
+      <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-md p-4 sm:p-8 border border-gray-100">
         {/* Header */}
-        <div className="border-b border-gray-200 pb-6 mb-8">
-          <h1 className="text-3xl font-semibold text-gray-800 flex items-center">
-            <Stethoscope className="h-8 w-8 text-purple-600 mr-3" />
-            Visit Editor
-          </h1>
-          <p className="mt-2 text-sm text-gray-500">
+        <div className="border-b border-gray-200 pb-4 sm:pb-6 mb-5 sm:mb-8">
+          <div className="flex items-center mb-1">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 bg-blue-50 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+              <Stethoscope className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-semibold text-gray-800">
+              Visit Editor
+            </h1>
+          </div>
+          <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-500 ml-1">
             Update or add details for patient visit record
           </p>
         </div>
 
         {/* Diagnosis Section */}
-        <section className="mb-10">
-          <h2 className="text-xl font-medium text-gray-700 mb-4 flex items-center">
-            <span className="h-6 w-6 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mr-2">
-              D
+        <section className="mb-7 sm:mb-10">
+          <h2 className="text-lg sm:text-xl font-medium text-gray-700 mb-3 sm:mb-4 flex items-center">
+            <span className="h-7 w-7 sm:h-8 sm:w-8 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mr-2.5 flex-shrink-0">
+              <ClipboardList className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </span>
             Diagnosis
           </h2>
@@ -369,7 +365,7 @@ const EditorPage = () => {
           {visitData?.diagnosis?.map((item, index) => (
             <div
               key={index}
-              className="mb-4 flex items-start gap-3 group animate-fade-in"
+              className="mb-3 sm:mb-4 flex items-start gap-2 sm:gap-3 group animate-fade-in"
             >
               <textarea
                 value={item}
@@ -377,58 +373,66 @@ const EditorPage = () => {
                   handleChange("diagnosis", index, e.target.value)
                 }
                 placeholder="Enter diagnosis..."
-                className="w-full p-4 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 hover:border-purple-300"
+                className="w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 hover:border-blue-200 text-sm sm:text-base shadow-sm"
                 rows={3}
               />
-              <button
-                onClick={() => toggleListening("diagnosis", index)}
-                className={`p-2 ${
-                  isListening[`diagnosis-${index}`]
-                    ? "bg-purple-100 text-purple-600"
-                    : "text-gray-400 hover:text-purple-500 hover:bg-purple-50"
-                } rounded-full transition-all duration-200`}
-                title={
-                  isListening[`diagnosis-${index}`]
-                    ? "Stop voice input"
-                    : "Start voice input"
-                }
-              >
-                {isListening[`diagnosis-${index}`] ? (
-                  <XCircle className="h-5 w-5" />
-                ) : (
-                  <Mic className="h-5 w-5" />
-                )}
-              </button>
-              {visitData.diagnosis.length > 1 && (
+              <div className="flex flex-col gap-2.5">
                 <button
-                  onClick={() => deleteField("diagnosis", index)}
-                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200"
+                  onClick={() => toggleListening("diagnosis", index)}
+                  className={`p-2.5 ${
+                    isListening[`diagnosis-${index}`]
+                      ? "bg-blue-50 text-blue-500"
+                      : "text-gray-400 hover:text-blue-400 hover:bg-blue-50"
+                  } rounded-full transition-all duration-200 flex-shrink-0 shadow-sm`}
+                  title={
+                    isListening[`diagnosis-${index}`]
+                      ? "Stop voice input"
+                      : "Start voice input"
+                  }
+                  aria-label={
+                    isListening[`diagnosis-${index}`]
+                      ? "Stop voice input"
+                      : "Start voice input"
+                  }
                 >
-                  <X className="h-5 w-5" />
+                  {isListening[`diagnosis-${index}`] ? (
+                    <XCircle className="h-5 w-5 sm:h-5 sm:w-5" />
+                  ) : (
+                    <Mic className="h-5 w-5 sm:h-5 sm:w-5" />
+                  )}
                 </button>
-              )}
+                {visitData.diagnosis.length > 1 && (
+                  <button
+                    onClick={() => deleteField("diagnosis", index)}
+                    className="p-2.5 text-gray-400 hover:text-red-400 hover:bg-red-50 rounded-full opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 flex-shrink-0 shadow-sm"
+                    aria-label="Delete diagnosis"
+                  >
+                    <X className="h-5 w-5 sm:h-5 sm:w-5" />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
           <button
             onClick={() => addField("diagnosis")}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg flex items-center hover:bg-purple-700 transition-all duration-200 shadow-sm hover:shadow-md"
+            className="px-4 py-2.5 sm:px-4 sm:py-2.5 bg-blue-500 text-white rounded-lg flex items-center hover:bg-blue-600 transition-all duration-200 shadow-sm hover:shadow-md text-sm sm:text-base mt-2"
           >
-            <Plus className="h-4 w-4 mr-2" /> Add Diagnosis
+            <Plus className="h-4 w-4 sm:h-4 sm:w-4 mr-2" /> Add Diagnosis
           </button>
         </section>
 
         {/* Precautions Section */}
-        <section className="mb-10">
-          <h2 className="text-xl font-medium text-gray-700 mb-4 flex items-center">
-            <span className="h-6 w-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mr-2">
-              P
+        <section className="mb-7 sm:mb-10">
+          <h2 className="text-lg sm:text-xl font-medium text-gray-700 mb-3 sm:mb-4 flex items-center">
+            <span className="h-7 w-7 sm:h-8 sm:w-8 bg-green-50 text-green-500 rounded-full flex items-center justify-center mr-2.5 flex-shrink-0">
+              <ShieldAlert className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </span>
             Precautions
           </h2>
           {visitData.precautions.map((item, index) => (
             <div
               key={index}
-              className="mb-4 flex items-start gap-3 group animate-fade-in"
+              className="mb-3 sm:mb-4 flex items-start gap-2 sm:gap-3 group animate-fade-in"
             >
               <textarea
                 value={item}
@@ -436,63 +440,71 @@ const EditorPage = () => {
                   handleChange("precautions", index, e.target.value)
                 }
                 placeholder="Enter precaution..."
-                className="w-full p-4 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200 hover:border-orange-300"
+                className="w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all duration-200 hover:border-green-200 text-sm sm:text-base shadow-sm"
                 rows={3}
               />
-              <button
-                onClick={() => toggleListening("precautions", index)}
-                className={`p-2 ${
-                  isListening[`precautions-${index}`]
-                    ? "bg-orange-100 text-orange-600"
-                    : "text-gray-400 hover:text-orange-500 hover:bg-orange-50"
-                } rounded-full transition-all duration-200`}
-                title={
-                  isListening[`precautions-${index}`]
-                    ? "Stop voice input"
-                    : "Start voice input"
-                }
-              >
-                {isListening[`precautions-${index}`] ? (
-                  <XCircle className="h-5 w-5" />
-                ) : (
-                  <Mic className="h-5 w-5" />
-                )}
-              </button>
-              {visitData.precautions.length > 1 && (
+              <div className="flex flex-col gap-2.5">
                 <button
-                  onClick={() => deleteField("precautions", index)}
-                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200"
+                  onClick={() => toggleListening("precautions", index)}
+                  className={`p-2.5 ${
+                    isListening[`precautions-${index}`]
+                      ? "bg-green-50 text-green-500"
+                      : "text-gray-400 hover:text-green-400 hover:bg-green-50"
+                  } rounded-full transition-all duration-200 flex-shrink-0 shadow-sm`}
+                  title={
+                    isListening[`precautions-${index}`]
+                      ? "Stop voice input"
+                      : "Start voice input"
+                  }
+                  aria-label={
+                    isListening[`precautions-${index}`]
+                      ? "Stop voice input"
+                      : "Start voice input"
+                  }
                 >
-                  <X className="h-5 w-5" />
+                  {isListening[`precautions-${index}`] ? (
+                    <XCircle className="h-5 w-5 sm:h-5 sm:w-5" />
+                  ) : (
+                    <Mic className="h-5 w-5 sm:h-5 sm:w-5" />
+                  )}
                 </button>
-              )}
+                {visitData.precautions.length > 1 && (
+                  <button
+                    onClick={() => deleteField("precautions", index)}
+                    className="p-2.5 text-gray-400 hover:text-red-400 hover:bg-red-50 rounded-full opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 flex-shrink-0 shadow-sm"
+                    aria-label="Delete precaution"
+                  >
+                    <X className="h-5 w-5 sm:h-5 sm:w-5" />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
           <button
             onClick={() => addField("precautions")}
-            className="px-4 py-2 bg-orange-600 text-white rounded-lg flex items-center hover:bg-orange-700 transition-all duration-200 shadow-sm hover:shadow-md"
+            className="px-4 py-2.5 sm:px-4 sm:py-2.5 bg-green-500 text-white rounded-lg flex items-center hover:bg-green-600 transition-all duration-200 shadow-sm hover:shadow-md text-sm sm:text-base mt-2"
           >
-            <Plus className="h-4 w-4 mr-2" /> Add Precaution
+            <Plus className="h-4 w-4 sm:h-4 sm:w-4 mr-2" /> Add Precaution
           </button>
         </section>
 
         {/* Prescribed Medications Section */}
-        <section className="mb-10">
-          <h2 className="text-xl font-medium text-gray-700 mb-4 flex items-center">
-            <span className="h-6 w-6 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center mr-2">
-              Rx
+        <section className="mb-7 sm:mb-10">
+          <h2 className="text-lg sm:text-xl font-medium text-gray-700 mb-3 sm:mb-4 flex items-center">
+            <span className="h-7 w-7 sm:h-8 sm:w-8 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center mr-2.5 flex-shrink-0">
+              <Pill className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </span>
             Prescribed Medications
           </h2>
           {visitData.prescribe_meds.map((med, index) => (
             <div
               key={index}
-              className="mb-6 p-4 border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 group animate-fade-in bg-white"
+              className="mb-5 sm:mb-6 p-4 sm:p-4 border border-gray-200 rounded-lg shadow hover:shadow-md transition-all duration-200 group animate-fade-in bg-white"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 {/* Left side - Medication Name with mic */}
-                <div className="w-2/5 bg-pink-50 p-3 rounded-lg border border-pink-100">
-                  <label className="block text-xs font-medium text-pink-600 mb-1">
+                <div className="w-full sm:w-2/5 bg-purple-50/70 p-3 sm:p-3 rounded-lg border border-purple-100">
+                  <label className="block text-xs font-medium text-purple-600 mb-1.5">
                     Medication Name
                   </label>
                   <div className="flex items-center gap-2">
@@ -508,7 +520,7 @@ const EditorPage = () => {
                         )
                       }
                       placeholder="Enter medication name"
-                      className="w-full p-3 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
+                      className="w-full p-2.5 sm:p-3 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-sm"
                     />
                     <button
                       onClick={() =>
@@ -518,31 +530,36 @@ const EditorPage = () => {
                           "nameofmedicine"
                         )
                       }
-                      className={`p-2 ${
+                      className={`p-2.5 ${
                         isListening[`prescribe_meds-${index}-nameofmedicine`]
-                          ? "bg-pink-100 text-pink-600"
-                          : "text-gray-400 hover:text-pink-500 hover:bg-pink-50"
-                      } rounded-full transition-all duration-200`}
+                          ? "bg-purple-50 text-purple-500"
+                          : "text-gray-400 hover:text-purple-400 hover:bg-purple-50"
+                      } rounded-full transition-all duration-200 flex-shrink-0 shadow-sm`}
                       title={
+                        isListening[`prescribe_meds-${index}-nameofmedicine`]
+                          ? "Stop voice input"
+                          : "Start voice input"
+                      }
+                      aria-label={
                         isListening[`prescribe_meds-${index}-nameofmedicine`]
                           ? "Stop voice input"
                           : "Start voice input"
                       }
                     >
                       {isListening[`prescribe_meds-${index}-nameofmedicine`] ? (
-                        <XCircle className="h-5 w-5" />
+                        <XCircle className="h-5 w-5 sm:h-5 sm:w-5" />
                       ) : (
-                        <Mic className="h-5 w-5" />
+                        <Mic className="h-5 w-5 sm:h-5 sm:w-5" />
                       )}
                     </button>
                   </div>
                 </div>
 
                 {/* Right side - Frequency, Type, and Food Requirements */}
-                <div className="w-3/5 flex items-center gap-3">
-                  {/* Frequency count */}
-                  <div className="w-1/3">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                <div className="w-full sm:w-3/5 flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-3 sm:mt-0">
+                  {/* Dosage */}
+                  <div className="w-full sm:w-1/3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
                       Dosage
                     </label>
                     <div className="flex items-center">
@@ -558,8 +575,9 @@ const EditorPage = () => {
                             );
                           }
                         }}
-                        className="p-2 bg-gray-100 text-gray-700 rounded-l-lg border border-gray-200 hover:bg-gray-200 transition-all duration-200"
+                        className="p-2.5 bg-gray-100 text-gray-700 rounded-l-lg border border-gray-200 hover:bg-gray-200 transition-all duration-200 min-w-[36px] flex justify-center items-center"
                         title="Decrease dosage"
+                        aria-label="Decrease dosage"
                       >
                         <span className="font-bold">−</span>
                       </button>
@@ -575,7 +593,7 @@ const EditorPage = () => {
                             "dosage"
                           )
                         }
-                        className="w-full p-3 bg-white border-t border-b border-gray-200 text-center text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200"
+                        className="w-full p-2.5 sm:p-3 bg-white border-t border-b border-gray-200 text-center text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-inner"
                       />
                       <button
                         onClick={() => {
@@ -587,8 +605,9 @@ const EditorPage = () => {
                             "dosage"
                           );
                         }}
-                        className="p-2 bg-gray-100 text-gray-700 rounded-r-lg border border-gray-200 hover:bg-gray-200 transition-all duration-200"
+                        className="p-2.5 bg-gray-100 text-gray-700 rounded-r-lg border border-gray-200 hover:bg-gray-200 transition-all duration-200 min-w-[36px] flex justify-center items-center"
                         title="Increase dosage"
+                        aria-label="Increase dosage"
                       >
                         <span className="font-bold">+</span>
                       </button>
@@ -596,8 +615,8 @@ const EditorPage = () => {
                   </div>
 
                   {/* Frequency type dropdown */}
-                  <div className="w-1/3">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                  <div className="w-full sm:w-1/3 mt-3 sm:mt-0">
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
                       Frequency
                     </label>
                     <select
@@ -610,7 +629,14 @@ const EditorPage = () => {
                           "frequency"
                         )
                       }
-                      className="w-full p-3 bg-white border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200"
+                      className="w-full p-2.5 sm:p-3 bg-white border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-sm appearance-none"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "right 0.5rem center",
+                        backgroundSize: "1.5em 1.5em",
+                        paddingRight: "2.5rem",
+                      }}
                     >
                       <option value="daily">Daily</option>
                       <option value="weekly">Weekly</option>
@@ -619,8 +645,8 @@ const EditorPage = () => {
                   </div>
 
                   {/* Empty stomach dropdown */}
-                  <div className="w-1/3">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                  <div className="w-full sm:w-1/3 mt-3 sm:mt-0">
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
                       Food Requirement
                     </label>
                     <select
@@ -633,7 +659,14 @@ const EditorPage = () => {
                           "emptyStomach"
                         )
                       }
-                      className="w-full p-3 bg-white border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200"
+                      className="w-full p-2.5 sm:p-3 bg-white border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-sm appearance-none"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "right 0.5rem center",
+                        backgroundSize: "1.5em 1.5em",
+                        paddingRight: "2.5rem",
+                      }}
                     >
                       <option value="yes">After Food</option>
                       <option value="no">Empty Stomach</option>
@@ -645,10 +678,11 @@ const EditorPage = () => {
                 {visitData.prescribe_meds.length > 1 && (
                   <button
                     onClick={() => deleteField("prescribe_meds", index)}
-                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200"
+                    className="p-2.5 text-red-400 hover:text-white bg-red-50 hover:bg-red-400 rounded-full transition-all duration-200 mt-3 sm:mt-0 ml-auto sm:ml-0 flex-shrink-0 shadow-sm"
                     title="Remove medication"
+                    aria-label="Remove medication"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-5 w-5 sm:h-5 sm:w-5" />
                   </button>
                 )}
               </div>
@@ -656,38 +690,70 @@ const EditorPage = () => {
           ))}
           <button
             onClick={() => addField("prescribe_meds")}
-            className="px-4 py-2 bg-pink-600 text-white rounded-lg flex items-center hover:bg-pink-700 transition-all duration-200 shadow-sm hover:shadow-md"
+            className="px-4 py-2.5 sm:px-4 sm:py-2.5 bg-purple-500 text-white rounded-lg flex items-center hover:bg-purple-600 transition-all duration-200 shadow-sm hover:shadow-md text-sm sm:text-base mt-2"
           >
-            <Plus className="h-4 w-4 mr-2" /> Add Medication
+            <Plus className="h-4 w-4 sm:h-4 sm:w-4 mr-2" /> Add Medication
           </button>
         </section>
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-4">
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 sm:gap-4 mt-8 sticky bottom-0 pt-3 border-t border-gray-100 bg-white">
           <button
             onClick={handleCancel}
-            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg flex items-center hover:bg-gray-300 transition-all duration-200 shadow-md hover:shadow-lg"
+            className="px-4 py-3 sm:px-6 sm:py-3 bg-gray-100 text-gray-700 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-all duration-200 shadow-sm hover:shadow-md text-sm sm:text-base w-full sm:w-auto font-medium"
             disabled={saving}
           >
-            <XCircle className="h-5 w-5 mr-2" /> Cancel
+            <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 sm:mr-2" />
+            Cancel
           </button>
           <button
             onClick={handleDone}
             disabled={saving}
-            className="px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-500 text-white rounded-lg flex items-center hover:from-teal-700 hover:to-teal-600 transition-all duration-200 shadow-md hover:shadow-lg"
+            className="px-4 py-3 sm:px-6 sm:py-3 bg-gradient-to-r from-blue-500 via-teal-500 to-green-500 text-white rounded-lg flex items-center justify-center hover:from-blue-600 hover:via-teal-600 hover:to-green-600 transition-all duration-200 shadow-sm hover:shadow-md text-sm sm:text-base w-full sm:w-auto font-medium"
           >
             {saving ? (
               <>
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" /> Saving...
+                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 mr-2 sm:mr-2 animate-spin" />
+                Saving...
               </>
             ) : (
               <>
-                <Save className="h-5 w-5 mr-2" /> Save Visit
+                <Save className="h-4 w-4 sm:h-5 sm:w-5 mr-2 sm:mr-2" /> Save
+                Visit
               </>
             )}
           </button>
         </div>
       </div>
+
+      {/* Cancel Confirmation Modal */}
+      <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
+        <DialogContent className="sm:max-w-md rounded-xl border border-gray-100 shadow-md p-5 sm:p-6 bg-white max-w-[92%] mx-auto">
+          <DialogHeader className="mb-3 sm:mb-4">
+            <DialogTitle className="text-base sm:text-lg font-medium text-gray-800 flex items-center">
+              <AlertCircle className="h-5 w-5 sm:h-5 sm:w-5 text-red-500 mr-2 flex-shrink-0" />
+              Discard changes?
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm text-gray-500 mt-1.5">
+              Unsaved changes will be lost if you leave this page.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center sm:justify-end border-t border-gray-100 pt-4 sm:pt-4 mt-2 sm:mt-2">
+            <button
+              onClick={closeCancelModal}
+              className="px-4 py-2.5 sm:px-4 sm:py-2.5 border border-gray-200 text-gray-600 text-sm rounded-md hover:bg-gray-50 transition-colors w-full sm:w-auto font-medium"
+            >
+              Continue editing
+            </button>
+            <button
+              onClick={confirmCancel}
+              className="px-4 py-2.5 sm:px-4 sm:py-2.5 bg-gradient-to-r from-red-500 to-red-400 text-white text-sm rounded-md hover:from-red-600 hover:to-red-500 transition-colors shadow-sm w-full sm:w-auto font-medium"
+            >
+              Discard changes
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Custom CSS for Animations */}
       <style jsx global>{`
@@ -703,6 +769,26 @@ const EditorPage = () => {
         }
         .animate-fade-in {
           animation: fadeIn 0.3s ease-out;
+        }
+
+        @media (max-width: 640px) {
+          textarea,
+          input,
+          select {
+            font-size: 16px; /* Prevents iOS zoom on focus */
+          }
+
+          /* Improve tap targets on mobile */
+          button,
+          select,
+          input[type="number"] {
+            min-height: 44px;
+          }
+
+          /* Remove browser default appearance */
+          select::-ms-expand {
+            display: none;
+          }
         }
       `}</style>
     </div>
