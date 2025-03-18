@@ -16,7 +16,7 @@ const prompt_info = `
 
   Format:
   - diagnosis should be a JSON array containing multiple diagnoses if available.
-  - prescriptions should be a JSON array containing details of prescribed medications if available in the format strictly([{nameofmedicine, frequency(options:- daily(default),weekly,monthly), dosage(represented by a number only), emptyStomach(options:- no(default), yes)}]).
+  - prescriptions should be a JSON array containing details of prescribed medications if available in the format strictly([{nameofmedicine, frequency(options:- daily(default),weekly,monthly), dosage(represented by a number only), emptyStomach(options:- yes(default), no)}]).
   - precautions should be a JSON array containing details of precautions if available.
   - If any information is not present, return [] for that field.
   - For condition you have to self evaluate the whole text and give a response in string, that what condition is person having as a problem(in few words(3-4)).
@@ -71,8 +71,16 @@ export async function POST(req: NextRequest) {
       .from(patientTable)
       .where(
         or(
-          and(eq(patientTable.phone, phone), eq(patientTable.name, name)),
-          and(eq(patientTable.email, email), eq(patientTable.name, name))
+          and(
+            eq(patientTable.phone, phone),
+            eq(patientTable.name, name),
+            eq(patientTable.doctorId, body.doctorId)
+          ),
+          and(
+            eq(patientTable.email, email),
+            eq(patientTable.name, name),
+            eq(patientTable.doctorId, body.doctorId)
+          )
         )
       );
 
@@ -85,21 +93,19 @@ export async function POST(req: NextRequest) {
         })
         .where(eq(patientTable.id, ifPatientAvailable[0]?.id));
 
-      const new_visit = await db
-        .insert(visitsTable)
-        .values({
-          diagnosis: patient_info?.diagnosis,
-          prescriptions: {
-            prescribe_meds: patient_info?.prescriptions,
-            precautions: patient_info?.precautions,
+      return NextResponse.json(
+        {
+          new_visit: {
+            diagnosis: patient_info?.diagnosis,
+            prescriptions: {
+              prescribe_meds: patient_info?.prescriptions,
+              precautions: patient_info?.precautions,
+            },
+            patientId: ifPatientAvailable[0]?.id,
           },
-          patientId: ifPatientAvailable[0]?.id,
-        })
-        .returning({
-          id: visitsTable.id,
-          patientId: visitsTable.patientId,
-        });
-      return NextResponse.json({ new_visit: new_visit[0] }, { status: 200 });
+        },
+        { status: 200 }
+      );
     }
 
     const new_patient = await db
@@ -126,23 +132,18 @@ export async function POST(req: NextRequest) {
         lastVisit: patientTable.lastVisit,
       });
 
-    const new_visit = await db
-      .insert(visitsTable)
-      .values({
-        diagnosis: patient_info?.diagnosis,
-        prescriptions: {
-          prescribe_meds: patient_info?.prescriptions,
-          precautions: patient_info?.precautions,
-        },
-        patientId: new_patient[0]?.id,
-      })
-      .returning({
-        id: visitsTable.id,
-        patientId: visitsTable.patientId,
-      });
-
     return NextResponse.json(
-      { new_patient: new_patient[0], new_visit: new_visit[0] },
+      {
+        new_patient: new_patient[0],
+        new_visit: {
+          diagnosis: patient_info?.diagnosis,
+          prescriptions: {
+            prescribe_meds: patient_info?.prescriptions,
+            precautions: patient_info?.precautions,
+          },
+          patientId: new_patient[0]?.id,
+        },
+      },
       { status: 200 }
     );
   } catch (err) {

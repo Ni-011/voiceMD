@@ -26,7 +26,7 @@ const prompt_visits = `
 
 export async function POST(req: NextRequest) {
   try {
-    const { diagnosis, precautions, prescribe_meds, patientId, text, visitId } =
+    const { diagnosis, precautions, prescribe_meds, patientId, visitId } =
       await req.json();
 
     if (visitId) {
@@ -48,9 +48,9 @@ export async function POST(req: NextRequest) {
         { status: 200 }
       );
     }
-    if (!patientId || !text) {
+    if (!patientId) {
       return NextResponse.json(
-        { error: "Text and patientId are required." },
+        { error: "PatientId are required." },
         { status: 400 }
       );
     }
@@ -65,18 +65,14 @@ export async function POST(req: NextRequest) {
         { status: 404 }
       );
     }
-    const visit_info = await generate(text, prompt_visits);
-    if (!visit_info) {
-      return NextResponse.json(
-        { error: "No visit information found." },
-        { status: 404 }
-      );
-    }
 
     const new_visit = await db.insert(visitsTable).values({
       patientId: patientId,
-      diagnosis: visit_info.diagnosis,
-      prescriptions: visit_info.prescriptions,
+      diagnosis: diagnosis,
+      prescriptions: {
+        prescribe_meds: prescribe_meds,
+        precautions: precautions,
+      },
     });
     return NextResponse.json(new_visit, { status: 200 });
   } catch (err) {
