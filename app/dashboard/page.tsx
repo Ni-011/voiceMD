@@ -12,7 +12,6 @@ import { Patient, PatientsTable } from "@/components/patients-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import debounce from "lodash/debounce";
-import Loading from "../Loading";
 
 const debouncedSearch = debounce(
   async (
@@ -43,7 +42,7 @@ export default function Dashboard() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const { user, isLoaded } = useUser();
   const doctorId = user?.id;
 
@@ -55,47 +54,45 @@ export default function Dashboard() {
   };
 
   const filteredPatients = async () => {
+    if (!doctorId) return;
+
     setIsLoading(true);
     if (searchQuery === "") {
       getPatients();
     } else {
       const api = `/api/search?doctorId=${doctorId}`;
       const results = await debouncedSearch(searchQuery);
-      console.log(results);
 
-      setPatients(results);
+      setPatients(results || []);
       setIsLoading(false);
     }
   };
   const getPatients = async () => {
+    if (!doctorId) return;
+
     setIsLoading(true);
 
     try {
       // Fetch data from API
       const response = await fetch(`/api/patients?page=1&doctorId=${doctorId}`);
-      console.log(doctorId);
 
       const data = await response.json();
-      console.log(data);
-
-      setPatients(data?.data);
+      setPatients(data?.data || []);
     } catch (error) {
       console.error("Error fetching patients:", error);
+      setPatients([]);
     } finally {
       setIsLoading(false);
     }
   };
+
   useEffect(() => {
     if (doctorId) {
       filteredPatients();
     }
   }, [searchQuery, doctorId]);
 
-  // Render loading UI conditionally after hooks
-  if (!isLoaded || !doctorId) {
-    return <Loading />;
-  }
-
+  // Just render the main UI even if user isn't fully loaded yet
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       {/* Header */}
@@ -118,12 +115,16 @@ export default function Dashboard() {
                 3
               </span>
             </Button>
-            <UserButton
-              afterSignOutUrl="/"
-              appearance={{
-                elements: { userButtonAvatarBox: "h-10 w-10 sm:h-12 sm:w-12" },
-              }}
-            />
+            {isLoaded && (
+              <UserButton
+                afterSignOutUrl="/"
+                appearance={{
+                  elements: {
+                    userButtonAvatarBox: "h-10 w-10 sm:h-12 sm:w-12",
+                  },
+                }}
+              />
+            )}
           </div>
         </div>
       </header>
