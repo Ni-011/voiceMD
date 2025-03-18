@@ -29,8 +29,16 @@ export async function POST(req: NextRequest) {
     const { diagnosis, precautions, prescribe_meds, patientId, visitId } =
       await req.json();
 
+    console.log("Received POST request with data:", {
+      patientId,
+      visitId,
+      diagnosisCount: diagnosis?.length,
+      precautionsCount: precautions?.length,
+      medicationsCount: prescribe_meds?.length,
+    });
+
     if (visitId) {
-      console.log(diagnosis, precautions, prescribe_meds);
+      console.log("Updating existing visit:", visitId);
 
       const visit = await db
         .update(visitsTable)
@@ -49,23 +57,28 @@ export async function POST(req: NextRequest) {
       );
     }
     if (!patientId) {
+      console.error("Missing patientId in request");
       return NextResponse.json(
-        { error: "PatientId are required." },
+        { error: "PatientId is required." },
         { status: 400 }
       );
     }
+
+    console.log("Checking if patient exists:", patientId);
     const patient = await db
       .select()
       .from(patientTable)
       .where(eq(patientTable.id, patientId));
 
     if (!patient.length) {
+      console.error("Patient not found:", patientId);
       return NextResponse.json(
         { error: "Patient not found." },
         { status: 404 }
       );
     }
 
+    console.log("Creating new visit for patient:", patientId);
     const new_visit = await db.insert(visitsTable).values({
       patientId: patientId,
       diagnosis: diagnosis,
@@ -74,9 +87,11 @@ export async function POST(req: NextRequest) {
         precautions: precautions,
       },
     });
+
+    console.log("Visit created successfully");
     return NextResponse.json(new_visit, { status: 200 });
   } catch (err) {
-    console.log("An error occurred: ", err);
+    console.error("Error in /api/visits POST:", err);
     return NextResponse.json({ error: "An error occurred." }, { status: 500 });
   }
 }

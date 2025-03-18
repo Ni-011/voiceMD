@@ -13,6 +13,7 @@ import {
 import { useSearchParams, useRouter } from "next/navigation";
 import Loading from "../Loading";
 import { useData } from "@/lib/store/datacontext";
+import { toast } from "sonner";
 
 // Define interfaces for type safety
 interface Medication {
@@ -28,16 +29,6 @@ interface VisitData {
   prescribe_meds: Medication[];
 }
 
-// Define modal states
-interface ModalState {
-  show: boolean;
-  title: string;
-  message: string;
-  type: "success" | "error" | "confirm";
-  onConfirm?: () => void;
-  onCancel?: () => void;
-}
-
 const EditorPage = () => {
   const [visitData, setVisitData] = useState<VisitData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,33 +37,37 @@ const EditorPage = () => {
   const [isListening, setIsListening] = useState<{ [key: string]: boolean }>(
     {}
   );
-  const [modal, setModal] = useState<ModalState>({
-    show: false,
-    title: "",
-    message: "",
-    type: "success",
-  });
   const searchParams = useSearchParams();
   const router = useRouter();
   const patientId = searchParams.get("patientId");
   const visitId = searchParams.get("visitId");
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const { data } = useData();
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        console.log("Patient ID from URL:", patientId);
+        console.log("Visit ID from URL:", visitId);
+        console.log("Context data:", data);
+
         // const response = await fetch(
         //   `/api/visits?patientId=${patientId}&visitId=${visitId}`
         // );
         const ndata = data;
-        console.log(ndata);
+
+        if (!ndata) {
+          console.warn("No data available from context");
+        }
+
         const visitdata: VisitData = {
           diagnosis: ndata?.diagnosis || [],
           precautions: ndata?.prescriptions?.precautions || [],
           prescribe_meds: ndata?.prescriptions?.prescribe_meds || [],
         };
 
+        console.log("Prepared visit data:", visitdata);
         setVisitData(visitdata);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -83,7 +78,7 @@ const EditorPage = () => {
     };
 
     fetchData();
-  }, []);
+  }, [patientId, visitId, data]);
 
   // Handle adding fields
   const addField = (field: keyof VisitData) => {
@@ -146,59 +141,107 @@ const EditorPage = () => {
   const handleDone = async () => {
     if (!visitData) return;
     console.log("Final Data:", visitData);
+    console.log("PatientId:", patientId); // Log patientId for debugging
+
+    if (!patientId) {
+      toast.error("Patient ID is missing", {
+        description: "Please go back and try again.",
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       setSubLoader(true);
+      const requestBody = {
+        patientId: patientId,
+        diagnosis: visitData.diagnosis,
+        prescribe_meds: visitData.prescribe_meds,
+        precautions: visitData.precautions,
+      };
+
+      console.log("Request Body:", requestBody);
+
       const response = await fetch("/api/visits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientId: patientId,
-          diagnosis: visitData.diagnosis,
-          prescribe_meds: visitData.prescribe_meds,
-          precautions: visitData.precautions,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
       if (response.ok) {
-        setModal({
-          show: true,
-          title: "Success",
-          message: "Visit data saved successfully!",
-          type: "success",
-          onConfirm: () => router.push(`/profile?id=${patientId}`),
+        // Replace modal with toast for success
+        toast.success("Visit data saved successfully!", {
+          description: "Patient record has been updated",
+          duration: 5000,
+          className: "minimal-success-toast",
         });
+        // Navigate after a short delay
+        setTimeout(() => {
+          router.push(`/profile?id=${patientId}`);
+        }, 2000);
       } else {
-        setModal({
-          show: true,
-          title: "Error",
-          message: "Error saving data. Please try again.",
-          type: "error",
-        });
+        // Try to get the error message from the response
+        try {
+          const errorData = await response.json();
+          toast.error("Error saving data", {
+            description: errorData.error || "Please try again.",
+            duration: 5000,
+            className: "minimal-error-toast",
+          });
+        } catch (e) {
+          toast.error("Error saving data", {
+            description: `Server returned ${response.status}. Please try again.`,
+            duration: 5000,
+            className: "minimal-error-toast",
+          });
+        }
       }
     } catch (error) {
       console.error("API Error:", error);
-      setModal({
-        show: true,
-        title: "Error",
-        message:
-          "Failed to save data. Please check your connection and try again.",
-        type: "error",
+      toast.error("Failed to save data", {
+        description: "Please check your connection and try again.",
+        duration: 5000,
+        className: "minimal-error-toast",
       });
     } finally {
       setSaving(false);
+      setSubLoader(false);
     }
   };
 
   const handleCancel = () => {
-    setModal({
-      show: true,
-      title: "Confirm Cancel",
-      message:
-        "Are you sure you want to cancel? Any unsaved changes will be lost.",
-      type: "confirm",
-      onConfirm: () => router.push("/"),
-      onCancel: () => setModal({ ...modal, show: false }),
-    });
+    toast(
+      <div className="flex flex-col gap-3">
+        <div className="text-lg font-semibold text-gray-800">
+          Confirm Cancel
+        </div>
+        <div className="text-sm text-gray-600">
+          Are you sure you want to cancel? Any unsaved changes will be lost.
+        </div>
+        <div className="flex gap-3 mt-2">
+          <button
+            onClick={() => {
+              toast.dismiss();
+              router.push("/");
+            }}
+            className="px-4 py-2 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 transition-colors"
+          >
+            Yes, Cancel
+          </button>
+          <button
+            onClick={() => toast.dismiss()}
+            className="px-4 py-2 bg-emerald-500 text-white text-sm rounded-md hover:bg-emerald-600 transition-colors"
+          >
+            Continue Editing
+          </button>
+        </div>
+      </div>,
+      {
+        duration: 10000,
+        position: "top-center",
+        className: "minimal-confirmation-toast",
+      }
+    );
   };
 
   // Handle voice input
@@ -270,63 +313,6 @@ const EditorPage = () => {
     recognition.start();
   };
 
-  // Modal component
-  const Modal = () => {
-    if (!modal.show) return null;
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
-        <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4 border-t-4 border-red-500">
-          <div className="text-center mb-4">
-            {modal.type === "success" && (
-              <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
-            )}
-            {modal.type === "error" && (
-              <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                <XCircle className="h-8 w-8 text-red-600" />
-              </div>
-            )}
-            {modal.type === "confirm" && (
-              <div className="mx-auto w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
-                <XCircle className="h-8 w-8 text-orange-600" />
-              </div>
-            )}
-            <h3 className="text-lg font-bold text-gray-900">{modal.title}</h3>
-            <p className="mt-2 text-gray-600">{modal.message}</p>
-          </div>
-
-          <div className="flex justify-end gap-3 mt-6">
-            {modal.type === "confirm" && (
-              <button
-                onClick={() => modal.onCancel?.()}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all duration-200"
-              >
-                Cancel
-              </button>
-            )}
-            <button
-              onClick={() => {
-                setModal({ ...modal, show: false });
-                modal.onConfirm?.();
-              }}
-              className={`px-4 py-2 rounded-lg text-white transition-all duration-200 ${
-                modal.type === "error"
-                  ? "bg-red-600 hover:bg-red-700"
-                  : modal.type === "confirm"
-                  ? "bg-red-600 hover:bg-red-700"
-                  : "bg-red-600 hover:bg-red-700"
-              }`}
-            >
-              {modal.type === "confirm" ? "Confirm" : "OK"}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // Loader component
   if (loading) {
     return <Loading />;
@@ -336,14 +322,29 @@ const EditorPage = () => {
   if (!visitData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-lg text-gray-600 font-medium">No data available.</p>
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
+          <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <p className="text-xl text-gray-800 font-medium mb-2">
+            Error loading data
+          </p>
+          <p className="text-gray-600 mb-6">
+            {!patientId
+              ? "No patient ID provided. Please select a patient first."
+              : "Failed to load visit data. Please try again."}
+          </p>
+          <button
+            onClick={() => router.push("/")}
+            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
+          >
+            Return to Dashboard
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 font-sans">
-      {modal.show && <Modal />}
       <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg p-8 border border-gray-100">
         {/* Header */}
         <div className="border-b border-gray-200 pb-6 mb-8">

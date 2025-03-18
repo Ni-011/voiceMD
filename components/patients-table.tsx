@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { Skeleton } from "../components/ui/skeleton";
 
 export interface Patient {
   id: string;
@@ -126,10 +127,37 @@ export function PatientsTable({
         </TableHeader>
 
         <TableBody>
-          {patients?.length === 0 ? (
+          {isLoading ? (
+            // Skeleton loading rows
+            Array.from({ length: 5 }).map((_, index) => (
+              <TableRow key={index} className="hover:bg-muted/50 border-b">
+                <TableCell className="py-4 sm:py-5">
+                  <Skeleton className="h-6 w-32" />
+                </TableCell>
+                <TableCell className="py-4 sm:py-5 hidden sm:table-cell">
+                  <Skeleton className="h-6 w-8" />
+                </TableCell>
+                <TableCell className="py-4 sm:py-5 hidden md:table-cell">
+                  <Skeleton className="h-6 w-16" />
+                </TableCell>
+                <TableCell className="py-4 sm:py-5">
+                  <Skeleton className="h-6 w-24" />
+                </TableCell>
+                <TableCell className="py-4 sm:py-5">
+                  <Skeleton className="h-6 w-20" />
+                </TableCell>
+                <TableCell className="py-4 sm:py-5 hidden md:table-cell">
+                  <Skeleton className="h-6 w-24" />
+                </TableCell>
+                <TableCell className="py-4 sm:py-5 text-right">
+                  <Skeleton className="h-9 w-9 ml-auto" />
+                </TableCell>
+              </TableRow>
+            ))
+          ) : patients?.length === 0 ? (
             <TableRow>
               <TableCell colSpan={7} className="h-24 text-center">
-                {isLoading ? "Loading..." : "No patients found."}
+                No patients found.
               </TableCell>
             </TableRow>
           ) : (

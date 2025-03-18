@@ -256,7 +256,12 @@ export function AddPatientModal({
         setData(data.new_visit);
         resetForm();
         onClose();
-        router.push(`/editor`);
+        if (data.new_visit && data.new_visit.patientId) {
+          router.push(`/editor?patientId=${data.new_visit.patientId}`);
+        } else {
+          console.error("No patientId available in the response");
+          setIsLoading(false);
+        }
       } else {
         console.error("Failed to add patient:", response.statusText);
         setIsLoading(false);
