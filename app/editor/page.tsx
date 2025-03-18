@@ -33,6 +33,8 @@ interface Medication {
   dosage: string;
   frequency: "daily" | "weekly" | "monthly";
   emptyStomach: "yes" | "no";
+  duration: string;
+  durationType: "weeks" | "months";
 }
 
 interface VisitData {
@@ -74,10 +76,21 @@ const EditorPage = () => {
           console.warn("No data available from context");
         }
 
+        // Add default duration fields to each medication if they don't exist
+        const prescribeMeds = ndata?.prescriptions?.prescribe_meds || [];
+        const updatedMeds = prescribeMeds.map((med) => ({
+          nameofmedicine: med.nameofmedicine,
+          dosage: med.dosage,
+          frequency: med.frequency,
+          emptyStomach: med.emptyStomach,
+          duration: "1", // Change default duration from 2 to 1
+          durationType: "weeks" as "weeks" | "months", // Default duration type with type assertion
+        }));
+
         const visitdata: VisitData = {
           diagnosis: ndata?.diagnosis || [],
           precautions: ndata?.prescriptions?.precautions || [],
-          prescribe_meds: ndata?.prescriptions?.prescribe_meds || [],
+          prescribe_meds: updatedMeds,
         };
 
         console.log("Prepared visit data:", visitdata);
@@ -107,6 +120,8 @@ const EditorPage = () => {
               dosage: "1",
               frequency: "daily",
               emptyStomach: "no",
+              duration: "1", // Change default duration from 2 to 1
+              durationType: "weeks", // Default duration type
             },
           ],
         };
@@ -499,137 +514,269 @@ const EditorPage = () => {
           {visitData.prescribe_meds.map((med, index) => (
             <div
               key={index}
-              className="mb-5 sm:mb-6 p-4 sm:p-4 border border-gray-200 rounded-lg shadow hover:shadow-md transition-all duration-200 group animate-fade-in bg-white"
+              className="mb-5 sm:mb-6 bg-white border border-gray-200 rounded-lg shadow hover:shadow-md transition-all duration-200 group animate-fade-in overflow-hidden"
             >
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                {/* Left side - Medication Name with mic */}
-                <div className="w-full sm:w-2/5 bg-purple-50/70 p-3 sm:p-3 rounded-lg border border-purple-100">
-                  <label className="block text-xs font-medium text-purple-600 mb-1.5">
-                    Medication Name
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={med.nameofmedicine}
-                      onChange={(e) =>
-                        handleChange(
-                          "prescribe_meds",
-                          index,
-                          e.target.value,
-                          "nameofmedicine"
-                        )
-                      }
-                      placeholder="Enter medication name"
-                      className="w-full p-2.5 sm:p-3 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-sm"
-                    />
-                    <button
-                      onClick={() =>
-                        toggleListening(
-                          "prescribe_meds",
-                          index,
-                          "nameofmedicine"
-                        )
-                      }
-                      className={`p-2.5 ${
-                        isListening[`prescribe_meds-${index}-nameofmedicine`]
-                          ? "bg-purple-50 text-purple-500"
-                          : "text-gray-400 hover:text-purple-400 hover:bg-purple-50"
-                      } rounded-full transition-all duration-200 flex-shrink-0 shadow-sm`}
-                      title={
-                        isListening[`prescribe_meds-${index}-nameofmedicine`]
-                          ? "Stop voice input"
-                          : "Start voice input"
-                      }
-                      aria-label={
-                        isListening[`prescribe_meds-${index}-nameofmedicine`]
-                          ? "Stop voice input"
-                          : "Start voice input"
-                      }
-                    >
-                      {isListening[`prescribe_meds-${index}-nameofmedicine`] ? (
-                        <XCircle className="h-5 w-5 sm:h-5 sm:w-5" />
-                      ) : (
-                        <Mic className="h-5 w-5 sm:h-5 sm:w-5" />
-                      )}
-                    </button>
+              {/* Card Header with Medicine Name and Delete Button */}
+              <div className="bg-purple-50/80 p-4 sm:p-5 border-b border-purple-100 flex justify-between items-center">
+                <div className="flex items-center gap-2 flex-grow">
+                  <Pill className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500 flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={med.nameofmedicine}
+                    onChange={(e) =>
+                      handleChange(
+                        "prescribe_meds",
+                        index,
+                        e.target.value,
+                        "nameofmedicine"
+                      )
+                    }
+                    placeholder="Enter medication name"
+                    className="w-full p-2 sm:p-2.5 bg-white border border-purple-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-sm"
+                  />
+                  <button
+                    onClick={() =>
+                      toggleListening("prescribe_meds", index, "nameofmedicine")
+                    }
+                    className={`p-2 ${
+                      isListening[`prescribe_meds-${index}-nameofmedicine`]
+                        ? "bg-purple-200 text-purple-600"
+                        : "bg-white text-gray-400 hover:text-purple-400 hover:bg-purple-50"
+                    } rounded-full transition-all duration-200 flex-shrink-0 shadow-sm border border-purple-100`}
+                    title={
+                      isListening[`prescribe_meds-${index}-nameofmedicine`]
+                        ? "Stop voice input"
+                        : "Start voice input"
+                    }
+                    aria-label={
+                      isListening[`prescribe_meds-${index}-nameofmedicine`]
+                        ? "Stop voice input"
+                        : "Start voice input"
+                    }
+                  >
+                    {isListening[`prescribe_meds-${index}-nameofmedicine`] ? (
+                      <XCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                    ) : (
+                      <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
+                    )}
+                  </button>
+                </div>
+
+                {visitData.prescribe_meds.length > 1 && (
+                  <button
+                    onClick={() => deleteField("prescribe_meds", index)}
+                    className="ml-2 p-2 text-red-400 hover:text-white bg-white hover:bg-red-400 rounded-lg transition-all duration-200 flex-shrink-0 shadow-sm border border-red-100"
+                    title="Remove medication"
+                    aria-label="Remove medication"
+                  >
+                    <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Card Body with Settings */}
+              <div className="p-4 sm:p-5">
+                {/* Dosage Section - Grouped together with a background */}
+                <div className="bg-blue-50/30 p-3 sm:p-4 rounded-lg border border-blue-100 mb-4">
+                  <h3 className="text-sm font-medium text-blue-700 mb-3 flex items-center">
+                    <span className="h-5 w-5 bg-blue-100 rounded-full flex items-center justify-center mr-1.5">
+                      <span className="text-blue-600 text-xs font-bold">1</span>
+                    </span>
+                    Dosage Information
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Dosage Amount */}
+                    <div className="flex flex-col">
+                      <label className="text-xs font-medium text-gray-600 mb-2">
+                        Amount
+                      </label>
+                      <div className="flex items-center h-10 rounded-lg overflow-hidden border border-gray-200 shadow-sm bg-white">
+                        <button
+                          onClick={() => {
+                            const currentValue = parseInt(med.dosage) || 0;
+                            if (currentValue > 1) {
+                              handleChange(
+                                "prescribe_meds",
+                                index,
+                                (currentValue - 1).toString(),
+                                "dosage"
+                              );
+                            }
+                          }}
+                          className="h-full bg-gray-100 text-gray-700 w-10 flex justify-center items-center hover:bg-gray-200 transition-all duration-200"
+                          title="Decrease dosage"
+                          aria-label="Decrease dosage"
+                        >
+                          <span className="font-bold">−</span>
+                        </button>
+                        <input
+                          type="number"
+                          min="1"
+                          value={med.dosage}
+                          onChange={(e) =>
+                            handleChange(
+                              "prescribe_meds",
+                              index,
+                              e.target.value,
+                              "dosage"
+                            )
+                          }
+                          className="h-full w-full text-center bg-white text-gray-700 focus:outline-none focus:ring-inset focus:ring-2 focus:ring-blue-400 transition-all duration-200 text-sm sm:text-base"
+                        />
+                        <button
+                          onClick={() => {
+                            const currentValue = parseInt(med.dosage) || 0;
+                            handleChange(
+                              "prescribe_meds",
+                              index,
+                              (currentValue + 1).toString(),
+                              "dosage"
+                            );
+                          }}
+                          className="h-full bg-gray-100 text-gray-700 w-10 flex justify-center items-center hover:bg-gray-200 transition-all duration-200"
+                          title="Increase dosage"
+                          aria-label="Increase dosage"
+                        >
+                          <span className="font-bold">+</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Frequency type dropdown */}
+                    <div className="flex flex-col">
+                      <label className="text-xs font-medium text-gray-600 mb-2">
+                        Frequency
+                      </label>
+                      <select
+                        value={med.frequency}
+                        onChange={(e) =>
+                          handleChange(
+                            "prescribe_meds",
+                            index,
+                            e.target.value as "daily" | "weekly" | "monthly",
+                            "frequency"
+                          )
+                        }
+                        className="h-10 rounded-lg bg-white border border-gray-200 px-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-sm appearance-none"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                          backgroundRepeat: "no-repeat",
+                          backgroundPosition: "right 0.5rem center",
+                          backgroundSize: "1.5em 1.5em",
+                          paddingRight: "2.5rem",
+                        }}
+                      >
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                      </select>
+                    </div>
+
+                    {/* Empty stomach dropdown */}
+                    <div className="flex flex-col">
+                      <label className="text-xs font-medium text-gray-600 mb-2">
+                        Food Requirement
+                      </label>
+                      <select
+                        value={med.emptyStomach}
+                        onChange={(e) =>
+                          handleChange(
+                            "prescribe_meds",
+                            index,
+                            e.target.value as "yes" | "no",
+                            "emptyStomach"
+                          )
+                        }
+                        className="h-10 rounded-lg bg-white border border-gray-200 px-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-sm appearance-none"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                          backgroundRepeat: "no-repeat",
+                          backgroundPosition: "right 0.5rem center",
+                          backgroundSize: "1.5em 1.5em",
+                          paddingRight: "2.5rem",
+                        }}
+                      >
+                        <option value="yes">After Food</option>
+                        <option value="no">Empty Stomach</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                {/* Right side - Frequency, Type, and Food Requirements */}
-                <div className="w-full sm:w-3/5 flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-3 sm:mt-0">
-                  {/* Dosage */}
-                  <div className="w-full sm:w-1/3">
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                      Dosage
-                    </label>
-                    <div className="flex items-center">
+                {/* Duration section with combined controls - separate visual section */}
+                <div className="bg-amber-50/30 p-3 sm:p-4 rounded-lg border border-amber-100">
+                  <h3 className="text-sm font-medium text-amber-700 mb-3 flex items-center">
+                    <span className="h-5 w-5 bg-amber-100 rounded-full flex items-center justify-center mr-1.5">
+                      <span className="text-amber-600 text-xs font-bold">
+                        2
+                      </span>
+                    </span>
+                    Treatment Duration
+                  </h3>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center h-10 rounded-lg overflow-hidden border border-gray-200 shadow-sm flex-grow max-w-[180px] bg-white">
                       <button
                         onClick={() => {
-                          const currentValue = parseInt(med.dosage) || 0;
+                          const currentValue = parseInt(med.duration) || 0;
                           if (currentValue > 1) {
                             handleChange(
                               "prescribe_meds",
                               index,
                               (currentValue - 1).toString(),
-                              "dosage"
+                              "duration"
                             );
                           }
                         }}
-                        className="p-2.5 bg-gray-100 text-gray-700 rounded-l-lg border border-gray-200 hover:bg-gray-200 transition-all duration-200 min-w-[36px] flex justify-center items-center"
-                        title="Decrease dosage"
-                        aria-label="Decrease dosage"
+                        className="h-full bg-gray-100 text-gray-700 w-10 flex justify-center items-center hover:bg-gray-200 transition-all duration-200"
+                        title="Decrease duration"
+                        aria-label="Decrease duration"
                       >
                         <span className="font-bold">−</span>
                       </button>
                       <input
                         type="number"
                         min="1"
-                        value={med.dosage}
+                        value={med.duration}
                         onChange={(e) =>
                           handleChange(
                             "prescribe_meds",
                             index,
                             e.target.value,
-                            "dosage"
+                            "duration"
                           )
                         }
-                        className="w-full p-2.5 sm:p-3 bg-white border-t border-b border-gray-200 text-center text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-inner"
+                        className="h-full w-full text-center bg-white text-gray-700 focus:outline-none focus:ring-inset focus:ring-2 focus:ring-amber-400 transition-all duration-200 text-sm sm:text-base"
                       />
                       <button
                         onClick={() => {
-                          const currentValue = parseInt(med.dosage) || 0;
+                          const currentValue = parseInt(med.duration) || 0;
                           handleChange(
                             "prescribe_meds",
                             index,
                             (currentValue + 1).toString(),
-                            "dosage"
+                            "duration"
                           );
                         }}
-                        className="p-2.5 bg-gray-100 text-gray-700 rounded-r-lg border border-gray-200 hover:bg-gray-200 transition-all duration-200 min-w-[36px] flex justify-center items-center"
-                        title="Increase dosage"
-                        aria-label="Increase dosage"
+                        className="h-full bg-gray-100 text-gray-700 w-10 flex justify-center items-center hover:bg-gray-200 transition-all duration-200"
+                        title="Increase duration"
+                        aria-label="Increase duration"
                       >
                         <span className="font-bold">+</span>
                       </button>
                     </div>
-                  </div>
-
-                  {/* Frequency type dropdown */}
-                  <div className="w-full sm:w-1/3 mt-3 sm:mt-0">
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                      Frequency
-                    </label>
                     <select
-                      value={med.frequency}
+                      value={med.durationType}
                       onChange={(e) =>
                         handleChange(
                           "prescribe_meds",
                           index,
-                          e.target.value as "daily" | "weekly" | "monthly",
-                          "frequency"
+                          e.target.value as "weeks" | "months",
+                          "durationType"
                         )
                       }
-                      className="w-full p-2.5 sm:p-3 bg-white border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-sm appearance-none"
+                      className="h-10 rounded-lg bg-white border border-gray-200 px-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-sm appearance-none"
                       style={{
                         backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
                         backgroundRepeat: "no-repeat",
@@ -638,53 +785,11 @@ const EditorPage = () => {
                         paddingRight: "2.5rem",
                       }}
                     >
-                      <option value="daily">Daily</option>
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
-                    </select>
-                  </div>
-
-                  {/* Empty stomach dropdown */}
-                  <div className="w-full sm:w-1/3 mt-3 sm:mt-0">
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                      Food Requirement
-                    </label>
-                    <select
-                      value={med.emptyStomach}
-                      onChange={(e) =>
-                        handleChange(
-                          "prescribe_meds",
-                          index,
-                          e.target.value as "yes" | "no",
-                          "emptyStomach"
-                        )
-                      }
-                      className="w-full p-2.5 sm:p-3 bg-white border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-sm appearance-none"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                        backgroundRepeat: "no-repeat",
-                        backgroundPosition: "right 0.5rem center",
-                        backgroundSize: "1.5em 1.5em",
-                        paddingRight: "2.5rem",
-                      }}
-                    >
-                      <option value="yes">After Food</option>
-                      <option value="no">Empty Stomach</option>
+                      <option value="weeks">Weeks</option>
+                      <option value="months">Months</option>
                     </select>
                   </div>
                 </div>
-
-                {/* Delete button */}
-                {visitData.prescribe_meds.length > 1 && (
-                  <button
-                    onClick={() => deleteField("prescribe_meds", index)}
-                    className="p-2.5 text-red-400 hover:text-white bg-red-50 hover:bg-red-400 rounded-full transition-all duration-200 mt-3 sm:mt-0 ml-auto sm:ml-0 flex-shrink-0 shadow-sm"
-                    title="Remove medication"
-                    aria-label="Remove medication"
-                  >
-                    <X className="h-5 w-5 sm:h-5 sm:w-5" />
-                  </button>
-                )}
               </div>
             </div>
           ))}
