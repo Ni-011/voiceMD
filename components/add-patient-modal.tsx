@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
+import { useData } from "@/lib/store/datacontext";
 
 interface AddPatientModalProps {
   isOpen: boolean;
@@ -44,6 +45,7 @@ export function AddPatientModal({
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { user } = useUser();
+  const { setData } = useData();
 
   const recognitionRef = useRef<any>(null);
   const finalTranscriptRef = useRef("");
@@ -251,12 +253,10 @@ export function AddPatientModal({
         const data = await response.json();
         console.log(data);
         if (data.new_patient) onAddPatient(data.new_patient);
-
+        setData(data.new_visit);
         resetForm();
         onClose();
-        router.push(
-          `/editor?patientId=${data.new_visit.patientId}&visitId=${data.new_visit.id}`
-        );
+        router.push(`/editor`);
       } else {
         console.error("Failed to add patient:", response.statusText);
         setIsLoading(false);

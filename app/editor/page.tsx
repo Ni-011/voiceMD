@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Loading from "../Loading";
+import { useData } from "@/lib/store/datacontext";
 
 // Define interfaces for type safety
 interface Medication {
@@ -41,6 +42,7 @@ const EditorPage = () => {
   const [visitData, setVisitData] = useState<VisitData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [subLoader, setSubLoader] = useState(false);
   const [isListening, setIsListening] = useState<{ [key: string]: boolean }>(
     {}
   );
@@ -60,25 +62,18 @@ const EditorPage = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        // Real API call example (uncomment and adjust):
-        /*
-        const response = await fetch("/api/visits?visitId=some-id");
-        const data = await response.json();
-        */
-        const response = await fetch(
-          `/api/visits?patientId=${patientId}&visitId=${visitId}`
-        );
-        const ndata = await response.json();
+        // const response = await fetch(
+        //   `/api/visits?patientId=${patientId}&visitId=${visitId}`
+        // );
+        const ndata = data;
         console.log(ndata);
-        const data: VisitData = {
+        const visitdata: VisitData = {
           diagnosis: ndata?.diagnosis || [],
           precautions: ndata?.prescriptions?.precautions || [],
           prescribe_meds: ndata?.prescriptions?.prescribe_meds || [],
         };
 
-        setVisitData(data);
+        setVisitData(visitdata);
       } catch (error) {
         console.error("Error fetching data:", error);
         alert("Failed to load visit data.");
@@ -153,13 +148,12 @@ const EditorPage = () => {
     console.log("Final Data:", visitData);
     setSaving(true);
     try {
+      setSubLoader(true);
       const response = await fetch("/api/visits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientId: patientId,
-          visitId: visitId,
-          visit: visitData,
           diagnosis: visitData.diagnosis,
           prescribe_meds: visitData.prescribe_meds,
           precautions: visitData.precautions,
@@ -195,7 +189,6 @@ const EditorPage = () => {
     }
   };
 
-  // Handle cancel button click
   const handleCancel = () => {
     setModal({
       show: true,
@@ -641,8 +634,8 @@ const EditorPage = () => {
                       }
                       className="w-full p-3 bg-white border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200"
                     >
-                      <option value="no">After Food</option>
-                      <option value="yes">Empty Stomach</option>
+                      <option value="yes">After Food</option>
+                      <option value="no">Empty Stomach</option>
                     </select>
                   </div>
                 </div>
