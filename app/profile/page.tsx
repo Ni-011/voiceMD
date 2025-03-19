@@ -30,6 +30,8 @@ interface PrescribedMedication {
   frequency: string;
   dosage: string;
   emptyStomach: string;
+  duration: string;
+  durationType: string;
 }
 
 interface SelectedVisit {
@@ -507,7 +509,10 @@ const Report = () => {
                             Frequency
                           </th>
                           <th className="text-left py-3 px-4 font-semibold text-teal-800 rounded-tr-lg">
-                            Food Requirement
+                            Food Req.
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-teal-800 rounded-tr-lg">
+                            Duration
                           </th>
                         </tr>
                       </thead>
@@ -531,6 +536,9 @@ const Report = () => {
                               </td>
                               <td className="py-3 px-4 text-gray-600 text-sm md:text-base">
                                 {med?.emptyStomach}
+                              </td>
+                              <td className="py-3 px-4 text-gray-600 text-sm md:text-base">
+                                {med?.duration} {med?.durationType}
                               </td>
                             </tr>
                           )

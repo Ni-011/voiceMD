@@ -16,7 +16,7 @@ const prompt_info = `
 
   Format:
   - diagnosis should be a JSON array containing multiple diagnoses if available.
-  - prescriptions should be a JSON array containing details of prescribed medications if available in the format strictly([{nameofmedicine, frequency(options:- daily(default),weekly,monthly), dosage(represented by a number only), emptyStomach(options:- yes(default), no)}]).
+  - prescriptions should be a JSON array containing details of prescribed medications if available in the format strictly([{nameofmedicine, frequency(options:- daily(default),weekly,monthly), dosage(represented by a number only), emptyStomach(options:- yes(default), no), duration(represented by a number only(1 default)), durationType(options: days,weeks(default),months)}]).
   - precautions should be a JSON array containing details of precautions if available.
   - If any information is not present, return [] for that field.
   - For condition you have to self evaluate the whole text and give a response in string, that what condition is person having as a problem(in few words(3-4)).

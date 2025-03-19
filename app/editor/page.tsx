@@ -34,7 +34,7 @@ interface Medication {
   frequency: "daily" | "weekly" | "monthly";
   emptyStomach: "yes" | "no";
   duration: string;
-  durationType: "weeks" | "months";
+  durationType: "weeks" | "days" | "months";
 }
 
 interface VisitData {
@@ -78,19 +78,11 @@ const EditorPage = () => {
 
         // Add default duration fields to each medication if they don't exist
         const prescribeMeds = ndata?.prescriptions?.prescribe_meds || [];
-        const updatedMeds = prescribeMeds.map((med) => ({
-          nameofmedicine: med.nameofmedicine,
-          dosage: med.dosage,
-          frequency: med.frequency,
-          emptyStomach: med.emptyStomach,
-          duration: "1", // Change default duration from 2 to 1
-          durationType: "weeks" as "weeks" | "months", // Default duration type with type assertion
-        }));
 
         const visitdata: VisitData = {
           diagnosis: ndata?.diagnosis || [],
           precautions: ndata?.prescriptions?.precautions || [],
-          prescribe_meds: updatedMeds,
+          prescribe_meds: prescribeMeds,
         };
 
         console.log("Prepared visit data:", visitdata);
@@ -738,7 +730,7 @@ const EditorPage = () => {
                       <input
                         type="number"
                         min="1"
-                        value={med.duration}
+                        value={med?.duration}
                         onChange={(e) =>
                           handleChange(
                             "prescribe_meds",
@@ -772,7 +764,7 @@ const EditorPage = () => {
                         handleChange(
                           "prescribe_meds",
                           index,
-                          e.target.value as "weeks" | "months",
+                          e.target.value as "weeks" | "days" | "months",
                           "durationType"
                         )
                       }
@@ -786,6 +778,7 @@ const EditorPage = () => {
                       }}
                     >
                       <option value="weeks">Weeks</option>
+                      <option value="days">Days</option>
                       <option value="months">Months</option>
                     </select>
                   </div>

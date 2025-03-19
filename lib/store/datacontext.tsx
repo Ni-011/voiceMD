@@ -10,6 +10,8 @@ interface ApiData {
       dosage: string;
       frequency: "daily" | "weekly" | "monthly";
       emptyStomach: "yes" | "no";
+      duration: string;
+      durationType: "weeks" | "months" | "days";
     }>;
     precautions: Array<string>;
   };
