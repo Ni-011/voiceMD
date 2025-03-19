@@ -100,12 +100,16 @@ const Report = () => {
             (new Date(visit.date as Date).toLocaleDateString() as string) || "",
         }));
 
+        // Reverse the visits array so oldest is first (visit 1)
+        // Assuming visitsData is returned with newest first
+        const orderedVisits = [...visitsWithDates].reverse();
+
         setPatient(patientData);
-        setVisits(visitsWithDates);
+        setVisits(orderedVisits);
 
         // Select the first visit by default if visits exist
-        if (visitsWithDates.length > 0) {
-          handleVisitChange(visitsWithDates[0].id, 0);
+        if (orderedVisits.length > 0) {
+          handleVisitChange(orderedVisits[0].id, 0);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -255,38 +259,48 @@ const Report = () => {
               Visit History
             </h3>
             <div className="space-y-2">
-              {visits.map((visit, index) => (
-                <button
-                  key={visit.id}
-                  onClick={() => handleVisitChange(visit.id, index)}
-                  className={`w-full px-4 py-3 text-left rounded-lg transition-all duration-200 flex items-center ${
-                    activeVisitIndex === index
-                      ? "bg-teal-50 border-l-4 border-teal-500 text-teal-700"
-                      : "bg-white hover:bg-gray-50 text-gray-700"
-                  }`}
-                >
-                  <div
-                    className={`h-9 w-9 rounded-full flex items-center justify-center mr-3 
-                    ${
-                      activeVisitIndex === index
-                        ? "bg-teal-500 text-white"
-                        : "bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    {index + 1}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium">Visit {index + 1}</div>
-                    <div className="text-xs text-gray-500 flex items-center">
-                      <CalendarIcon className="h-3 w-3 mr-1" />
-                      {visit?.date}
-                    </div>
-                  </div>
-                  {activeVisitIndex === index && (
-                    <ChevronRight className="h-5 w-5 text-teal-500" />
-                  )}
-                </button>
-              ))}
+              {visits
+                .slice()
+                .reverse()
+                .map((visit, reversedIndex) => {
+                  // Calculate the actual visit number (oldest = 1)
+                  const visitNumber = visits.length - reversedIndex;
+                  // Get the original index in the visits array
+                  const originalIndex = visits.length - reversedIndex - 1;
+
+                  return (
+                    <button
+                      key={visit.id}
+                      onClick={() => handleVisitChange(visit.id, originalIndex)}
+                      className={`w-full px-4 py-3 text-left rounded-lg transition-all duration-200 flex items-center ${
+                        activeVisitIndex === originalIndex
+                          ? "bg-teal-50 border-l-4 border-teal-500 text-teal-700"
+                          : "bg-white hover:bg-gray-50 text-gray-700"
+                      }`}
+                    >
+                      <div
+                        className={`h-9 w-9 rounded-full flex items-center justify-center mr-3 
+                      ${
+                        activeVisitIndex === originalIndex
+                          ? "bg-teal-500 text-white"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                      >
+                        {visitNumber}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium">Visit {visitNumber}</div>
+                        <div className="text-xs text-gray-500 flex items-center">
+                          <CalendarIcon className="h-3 w-3 mr-1" />
+                          {visit?.date}
+                        </div>
+                      </div>
+                      {activeVisitIndex === originalIndex && (
+                        <ChevronRight className="h-5 w-5 text-teal-500" />
+                      )}
+                    </button>
+                  );
+                })}
             </div>
           </div>
 
@@ -398,11 +412,11 @@ const Report = () => {
         {selectedVisit && activeVisitIndex !== null && (
           <div className="md:hidden bg-white text-gray-900 px-4 py-3 rounded-lg mb-4 flex items-center shadow-sm border border-gray-100 print:hidden">
             <div className="h-6 w-6 rounded-full bg-teal-500 text-white flex items-center justify-center mr-2 text-sm">
-              {activeVisitIndex + 1}
+              {visits.length - activeVisitIndex}
             </div>
             <div className="flex-1">
               <span className="text-sm font-medium">
-                Visit {activeVisitIndex + 1}
+                Visit {visits.length - activeVisitIndex}
               </span>
               <span className="text-xs text-gray-500 ml-2">
                 {visits[activeVisitIndex].date}
