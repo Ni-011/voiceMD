@@ -108,9 +108,14 @@ function ProfileContent() {
         setPatient(patientData);
         setVisits(orderedVisits);
 
-        // Select the first visit by default if visits exist
+        // Select the latest visit by default (at position 0 in reversed display order)
         if (orderedVisits.length > 0) {
-          handleVisitChange(orderedVisits[0].id, 0);
+          // This selects the newest visit (last in the ordered array, first when displayed reversed)
+          const latestVisitIndex = orderedVisits.length - 1;
+          handleVisitChange(
+            orderedVisits[latestVisitIndex].id,
+            latestVisitIndex
+          );
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -158,7 +163,27 @@ function ProfileContent() {
         `/api/visits?patientId=${patientId}&visitId=${visitId}`
       );
       const data = await response.json();
-      setSelectedVisit(data);
+
+      // Add debug logging
+      console.log("Visit data received:", data);
+
+      // Ensure prescriptions object exists and has required properties
+      const safeData = {
+        ...data,
+        diagnosis: Array.isArray(data.diagnosis) ? data.diagnosis : [],
+        prescriptions: {
+          prescribe_meds: Array.isArray(data.prescriptions?.prescribe_meds)
+            ? data.prescriptions.prescribe_meds
+            : [],
+          precautions: Array.isArray(data.prescriptions?.precautions)
+            ? data.prescriptions.precautions
+            : [],
+          extraPrescriptions: data.prescriptions?.extraPrescriptions || "",
+        },
+      };
+
+      console.log("Sanitized visit data:", safeData);
+      setSelectedVisit(safeData);
       setActiveVisitIndex(index);
       // Close sidebar on mobile after selection
       if (window.innerWidth < 768) {
@@ -273,7 +298,7 @@ function ProfileContent() {
                     <button
                       key={visit.id}
                       onClick={() => handleVisitChange(visit.id, originalIndex)}
-                      className={`w-full px-4 py-3 text-left rounded-lg transition-all duration-200 flex items-center ${
+                      className={`w-full px-4 py-3 text-left rounded-lg transition-all duration-200 flex items-center cursor-pointer ${
                         activeVisitIndex === originalIndex
                           ? "bg-teal-50 border-l-4 border-teal-500 text-teal-700"
                           : "bg-white hover:bg-gray-50 text-gray-700"

@@ -4,6 +4,7 @@ import type React from "react";
 
 import { useState, useRef, useEffect } from "react";
 import { Mic, MicOff, Languages, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -79,6 +80,7 @@ export function AddPatientModal({
     maxAlternatives: number;
     onresult: Function;
     onend: Function;
+    onstart: Function;
     onerror: Function;
     start: () => void;
     stop: () => void;
@@ -88,6 +90,27 @@ export function AddPatientModal({
   const finalTranscriptRef = useRef("");
   const isComponentMounted = useRef(true);
 
+  // Clean up speech recognition
+  const cleanupSpeechRecognition = () => {
+    if (recognitionRef.current) {
+      try {
+        // First remove all event handlers
+        recognitionRef.current.onresult = null as any;
+        recognitionRef.current.onend = null as any;
+        recognitionRef.current.onerror = null as any;
+        recognitionRef.current.onstart = null as any;
+
+        // Then stop recognition
+        recognitionRef.current.stop();
+      } catch (error) {
+        // Ignore errors during cleanup
+        console.log("Error during cleanup:", error);
+      } finally {
+        recognitionRef.current = null;
+      }
+    }
+  };
+
   // Initialize speech recognition
   const initializeSpeechRecognition = (language: string) => {
     // Clean up any existing instance first
@@ -95,109 +118,112 @@ export function AddPatientModal({
 
     if (!isComponentMounted.current) return null;
 
-    if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
-      try {
-        // Use a simple type assertion here to avoid complex type definitions
-        const SpeechRecognition =
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).webkitSpeechRecognition ||
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).SpeechRecognition;
+    // Check if browser supports Speech Recognition API
+    const hasSpeechRecognition = "SpeechRecognition" in window;
+    const hasWebkitSpeechRecognition = "webkitSpeechRecognition" in window;
 
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = language;
-        // Increase maxAlternatives to improve recognition
-        recognition.maxAlternatives = 3;
+    if (!hasSpeechRecognition && !hasWebkitSpeechRecognition) {
+      toast.error("Speech Recognition Not Supported", {
+        description:
+          "Your browser doesn't support speech recognition. Please try Chrome or Edge.",
+      });
+      return null;
+    }
 
-        // We'll use a generic event type for simplicity
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        recognition.onresult = (event: any) => {
-          if (!isComponentMounted.current) return;
+    try {
+      // Use the appropriate constructor based on browser support
+      let recognition;
 
-          let interimTranscript = "";
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              finalTranscriptRef.current +=
-                event.results[i][0].transcript + " ";
-            } else {
-              interimTranscript += event.results[i][0].transcript;
-            }
+      if (hasSpeechRecognition) {
+        recognition = new (window as any).SpeechRecognition();
+      } else if (hasWebkitSpeechRecognition) {
+        recognition = new (window as any).webkitSpeechRecognition();
+      } else {
+        throw new Error("No speech recognition support available");
+      }
+
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = language;
+      // Increase maxAlternatives to improve recognition
+      recognition.maxAlternatives = 3;
+
+      // We'll use a generic event type for simplicity
+      recognition.onresult = (event: any) => {
+        if (!isComponentMounted.current) return;
+
+        let interimTranscript = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscriptRef.current += event.results[i][0].transcript + " ";
+          } else {
+            interimTranscript += event.results[i][0].transcript;
           }
+        }
 
-          // Ensure transcript doesn't exceed reasonable limits
-          if (finalTranscriptRef.current.length > 10000) {
-            finalTranscriptRef.current = finalTranscriptRef.current.substring(
-              finalTranscriptRef.current.length - 10000
-            );
-          }
+        // Ensure transcript doesn't exceed reasonable limits
+        if (finalTranscriptRef.current.length > 10000) {
+          finalTranscriptRef.current = finalTranscriptRef.current.substring(
+            finalTranscriptRef.current.length - 10000
+          );
+        }
 
-          setTranscript(finalTranscriptRef.current + interimTranscript);
-        };
+        setTranscript(finalTranscriptRef.current + interimTranscript);
+      };
 
-        recognition.onend = () => {
-          if (!isComponentMounted.current) return;
+      recognition.onstart = () => {
+        console.log("Speech recognition started");
+        if (isComponentMounted.current) {
+          setIsRecording(true);
+        }
+      };
 
-          if (isRecording) {
-            try {
-              // Restart recognition more quickly
-              setTimeout(() => {
-                if (
-                  recognitionRef.current &&
-                  isRecording &&
-                  isComponentMounted.current
-                ) {
-                  recognitionRef.current.start();
-                }
-              }, 100); // Reduced from 300ms to 100ms
-            } catch (error) {
-              console.error("Failed to restart recording:", error);
-              if (isComponentMounted.current) {
-                setIsRecording(false);
+      recognition.onend = () => {
+        console.log("Speech recognition ended");
+        if (!isComponentMounted.current) return;
+
+        if (isRecording) {
+          try {
+            // Restart recognition more quickly
+            setTimeout(() => {
+              if (
+                recognitionRef.current &&
+                isRecording &&
+                isComponentMounted.current
+              ) {
+                recognitionRef.current.start();
               }
-            }
-          }
-        };
-
-        recognition.onerror = (event: { error: string }) => {
-          if (!isComponentMounted.current) return;
-
-          // Only log certain errors
-          if (event.error !== "no-speech" && event.error !== "aborted") {
-            console.error("Speech recognition error:", event.error);
+            }, 100); // Reduced from 300ms to 100ms
+          } catch (error) {
+            console.error("Failed to restart recording:", error);
             if (isComponentMounted.current) {
               setIsRecording(false);
             }
           }
-        };
+        }
+      };
 
-        recognitionRef.current = recognition;
-        return recognition;
-      } catch (error) {
-        console.error("Error initializing speech recognition:", error);
-        return null;
-      }
-    }
-    return null;
-  };
+      recognition.onerror = (event: { error: string }) => {
+        console.error("Speech recognition error:", event.error);
+        if (!isComponentMounted.current) return;
 
-  // Clean up speech recognition
-  const cleanupSpeechRecognition = () => {
-    if (recognitionRef.current) {
-      try {
-        // First remove all event handlers
-        recognitionRef.current.onresult = () => {};
-        recognitionRef.current.onend = () => {};
-        recognitionRef.current.onerror = () => {};
+        // Only log certain errors
+        if (event.error !== "no-speech" && event.error !== "aborted") {
+          console.error("Speech recognition error:", event.error);
+          if (isComponentMounted.current) {
+            setIsRecording(false);
+          }
+        }
+      };
 
-        // Then stop recognition
-        recognitionRef.current.stop();
-      } catch (error) {
-        // Ignore errors during cleanup
-      } finally {
-        recognitionRef.current = null;
-      }
+      recognitionRef.current = recognition;
+      return recognition;
+    } catch (error) {
+      console.error("Error initializing speech recognition:", error);
+      toast.error("Failed to initialize speech recognition", {
+        description: "Please try again or check browser permissions.",
+      });
+      return null;
     }
   };
 
@@ -223,32 +249,88 @@ export function AddPatientModal({
         }
       }, 500);
     }
-  }, [isHindi, isRecording]);
+  }, [isHindi]);
+
+  // Add a separate effect for component mount to handle browser detection
+  useEffect(() => {
+    // Check if browser supports Speech Recognition API
+    const hasSpeechRecognition = "SpeechRecognition" in window;
+    const hasWebkitSpeechRecognition = "webkitSpeechRecognition" in window;
+
+    if (!hasSpeechRecognition && !hasWebkitSpeechRecognition) {
+      console.warn("This browser doesn't support speech recognition");
+    }
+  }, []);
+
+  // Debug effect to help identify state issues
+  useEffect(() => {
+    console.log("Recording state changed:", isRecording);
+  }, [isRecording]);
 
   const startRecording = () => {
+    console.log("Starting recording...");
     if (isRecording) return;
 
-    // Initialize with current language
-    const recognition = initializeSpeechRecognition(
-      isHindi ? "hi-IN" : "en-US"
-    );
+    // First check if browser supports the API
+    const hasSpeechRecognition = "SpeechRecognition" in window;
+    const hasWebkitSpeechRecognition = "webkitSpeechRecognition" in window;
 
-    if (recognition) {
-      try {
-        recognition.start();
-        setIsRecording(true);
-      } catch (error) {
-        console.error("Error starting recording:", error);
-        cleanupSpeechRecognition();
-      }
+    if (!hasSpeechRecognition && !hasWebkitSpeechRecognition) {
+      toast.error("Speech Recognition Not Supported", {
+        description:
+          "Your browser doesn't support speech recognition. Please try Chrome or Edge.",
+      });
+      return;
     }
+
+    // Request microphone permission explicitly
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then(() => {
+        // After permission is granted, initialize recognition
+        const recognition = initializeSpeechRecognition(
+          isHindi ? "hi-IN" : "en-US"
+        );
+
+        if (recognition) {
+          try {
+            recognition.start();
+            console.log("Recognition started");
+            // The onstart event will set isRecording to true
+          } catch (error) {
+            console.error("Error starting recording:", error);
+            toast.error("Failed to start recording", {
+              description: "Please check your microphone permissions.",
+            });
+            cleanupSpeechRecognition();
+          }
+        } else {
+          toast.error("Speech Recognition Failed", {
+            description:
+              "Could not initialize speech recognition. Please try again.",
+          });
+        }
+      })
+      .catch((error) => {
+        console.error("Microphone permission denied:", error);
+        toast.error("Microphone Access Denied", {
+          description: "Please allow microphone access to use voice recording.",
+        });
+      });
   };
 
   const stopRecording = () => {
+    console.log("Stopping recording...");
     if (!isRecording) return;
 
-    cleanupSpeechRecognition();
-    setIsRecording(false);
+    try {
+      cleanupSpeechRecognition();
+      console.log("Recording stopped successfully");
+    } catch (error) {
+      console.error("Error stopping recording:", error);
+    } finally {
+      setIsRecording(false);
+    }
   };
 
   const toggleRecording = () => {
@@ -569,6 +651,39 @@ export function AddPatientModal({
                       {isHindi ? "Hindi" : "English"}
                     </Label>
                   </div>
+                  {/* DevTool for debugging voice recognition */}
+                  {process.env.NODE_ENV === "development" && (
+                    <div className="ml-auto" title="Debug Voice Recognition">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          console.log(
+                            "Current recognition ref:",
+                            recognitionRef.current
+                          );
+                          console.log("Is recording:", isRecording);
+                          console.log("Transcript:", transcript);
+
+                          if (!isRecording) {
+                            // Force recreation of recognition instance
+                            cleanupSpeechRecognition();
+                            setTimeout(() => startRecording(), 100);
+                          } else {
+                            stopRecording();
+                            setTimeout(() => {
+                              setIsRecording(false);
+                              finalTranscriptRef.current = "";
+                            }, 100);
+                          }
+                        }}
+                        className="text-xs px-2 py-1 h-7"
+                      >
+                        Reset Audio
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
 

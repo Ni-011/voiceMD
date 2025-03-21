@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 
 interface ApiData {
+  symptoms?: string;
   diagnosis: Array<string>;
   prescriptions: {
     prescribe_meds: Array<{
@@ -14,6 +15,7 @@ interface ApiData {
       durationType: "weeks" | "months" | "days";
     }>;
     precautions: Array<string>;
+    extraPrescriptions?: string;
   };
   patientId: string;
 }

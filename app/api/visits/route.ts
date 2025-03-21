@@ -27,37 +27,76 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const { diagnosis, precautions, prescribe_meds, patientId, visitId } =
-      await req.json();
+    // Clone the request to read it twice (once for logging)
+    const reqClone = req.clone();
 
-    console.log("Received POST request with data:", {
+    // Parse the request body
+    const requestBody = await req.json();
+
+    // Handle both old and new formats
+    // In the old format, precautions and prescribe_meds are at the top level
+    // In the new format, they're nested inside a prescriptions object
+    const {
+      diagnosis,
+      precautions: topLevelPrecautions,
+      prescribe_meds: topLevelMeds,
       patientId,
       visitId,
-      diagnosisCount: diagnosis?.length,
-      precautionsCount: precautions?.length,
-      medicationsCount: prescribe_meds?.length,
+      extraPrescriptions: topLevelExtraPrescriptions,
+      prescriptions,
+    } = requestBody;
+
+    // Log entire request for debugging
+    console.log("Complete request body:", await reqClone.text());
+
+    // Ensure we have arrays even if they're not provided, handling both formats
+    const safeData = {
+      diagnosis: Array.isArray(diagnosis) ? diagnosis : [],
+      precautions: Array.isArray(prescriptions?.precautions)
+        ? prescriptions.precautions
+        : Array.isArray(topLevelPrecautions)
+        ? topLevelPrecautions
+        : [],
+      prescribe_meds: Array.isArray(prescriptions?.prescribe_meds)
+        ? prescriptions.prescribe_meds
+        : Array.isArray(topLevelMeds)
+        ? topLevelMeds
+        : [],
+      patientId,
+      visitId,
+      extraPrescriptions:
+        prescriptions?.extraPrescriptions || topLevelExtraPrescriptions || "",
+    };
+
+    console.log("Received POST request with sanitized data:", {
+      patientId: safeData.patientId,
+      visitId: safeData.visitId,
+      diagnosisCount: safeData.diagnosis.length,
+      precautionsCount: safeData.precautions.length,
+      medicationsCount: safeData.prescribe_meds.length,
     });
 
-    if (visitId) {
-      console.log("Updating existing visit:", visitId);
+    if (safeData.visitId) {
+      console.log("Updating existing visit:", safeData.visitId);
 
       const visit = await db
         .update(visitsTable)
         .set({
-          diagnosis: diagnosis,
+          diagnosis: safeData.diagnosis,
           prescriptions: {
-            prescribe_meds: prescribe_meds,
-            precautions: precautions,
+            prescribe_meds: safeData.prescribe_meds,
+            precautions: safeData.precautions,
+            extraPrescriptions: safeData.extraPrescriptions,
           },
         })
-        .where(eq(visitsTable.id, visitId));
+        .where(eq(visitsTable.id, safeData.visitId));
 
       return NextResponse.json(
         { message: "data updated successfully", visit },
         { status: 200 }
       );
     }
-    if (!patientId) {
+    if (!safeData.patientId) {
       console.error("Missing patientId in request");
       return NextResponse.json(
         { error: "PatientId is required." },
@@ -65,27 +104,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log("Checking if patient exists:", patientId);
+    console.log("Checking if patient exists:", safeData.patientId);
     const patient = await db
       .select()
       .from(patientTable)
-      .where(eq(patientTable.id, patientId));
+      .where(eq(patientTable.id, safeData.patientId));
 
     if (!patient.length) {
-      console.error("Patient not found:", patientId);
+      console.error("Patient not found:", safeData.patientId);
       return NextResponse.json(
         { error: "Patient not found." },
         { status: 404 }
       );
     }
 
-    console.log("Creating new visit for patient:", patientId);
+    console.log("Creating new visit for patient:", safeData.patientId);
     const new_visit = await db.insert(visitsTable).values({
-      patientId: patientId,
-      diagnosis: diagnosis,
+      patientId: safeData.patientId,
+      diagnosis: safeData.diagnosis,
       prescriptions: {
-        prescribe_meds: prescribe_meds,
-        precautions: precautions,
+        prescribe_meds: safeData.prescribe_meds,
+        precautions: safeData.precautions,
+        extraPrescriptions: safeData.extraPrescriptions,
       },
     });
 
