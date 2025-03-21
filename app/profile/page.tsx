@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import {
   CalendarIcon,
   Printer,
@@ -12,13 +12,12 @@ import {
   Menu,
   X,
   ChevronRight,
-  Stethoscope,
-  Pill,
   Calendar,
   BarChart2,
   Mic,
   ArrowLeft,
   Home,
+  Pill,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -64,7 +63,8 @@ interface PatientDetail {
   visits: Visit[];
 }
 
-const Report = () => {
+// Create a separate component that uses useSearchParams
+function ProfileContent() {
   const [patient, setPatient] = useState<PatientDetail | undefined>();
   const [selectedVisit, setSelectedVisit] = useState<
     SelectedVisit | undefined
@@ -94,10 +94,11 @@ const Report = () => {
         const visitsData = await visitsResponse.json();
 
         // Add mock dates to visits for better UI (in a real app these would come from API)
-        const visitsWithDates = visitsData.map((visit: any, index: number) => ({
+        const visitsWithDates = visitsData.map((visit: Visit) => ({
           ...visit,
-          date:
-            (new Date(visit.date as Date).toLocaleDateString() as string) || "",
+          date: visit.date
+            ? new Date(visit.date).toLocaleDateString()
+            : new Date().toLocaleDateString(),
         }));
 
         // Reverse the visits array so oldest is first (visit 1)
@@ -614,6 +615,19 @@ const Report = () => {
       </div>
     </div>
   );
-};
+}
 
-export default Report;
+// Main component that wraps ProfileContent in Suspense
+export default function ProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
+      <ProfileContent />
+    </Suspense>
+  );
+}

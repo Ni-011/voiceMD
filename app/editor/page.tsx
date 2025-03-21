@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import {
   X,
   Plus,
@@ -7,7 +7,6 @@ import {
   Stethoscope,
   Mic,
   XCircle,
-  CheckCircle,
   Loader2,
   ClipboardList,
   ShieldAlert,
@@ -43,7 +42,8 @@ interface VisitData {
   prescribe_meds: Medication[];
 }
 
-const EditorPage = () => {
+// Create a separate component that uses useSearchParams
+function EditorContent() {
   const [visitData, setVisitData] = useState<VisitData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -208,7 +208,7 @@ const EditorPage = () => {
             duration: 5000,
             className: "minimal-error-toast",
           });
-        } catch (e) {
+        } catch {
           toast.error("Error saving data", {
             description: `Server returned ${response.status}. Please try again.`,
             duration: 5000,
@@ -890,6 +890,21 @@ const EditorPage = () => {
         }
       `}</style>
     </div>
+  );
+}
+
+// Main component that wraps EditorContent in Suspense
+const EditorPage = () => {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      }
+    >
+      <EditorContent />
+    </Suspense>
   );
 };
 

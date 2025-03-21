@@ -26,7 +26,31 @@ import { useData } from "@/lib/store/datacontext";
 interface AddPatientModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddPatient: (patient: any) => void;
+  onAddPatient: (patient: Patient) => void;
+}
+
+// Add a Patient interface
+interface Patient {
+  id?: string;
+  name: string;
+  age: string | number;
+  gender: string;
+  phone?: string;
+  email?: string;
+  lastVisit?: string;
+  condition?: string;
+  status?: string;
+}
+
+// Define SpeechRecognitionEvent type if needed
+interface SpeechRecognitionEvent {
+  resultIndex: number;
+  results: {
+    isFinal: boolean;
+    [index: number]: {
+      transcript: string;
+    }[];
+  }[];
 }
 
 export function AddPatientModal({
@@ -47,7 +71,20 @@ export function AddPatientModal({
   const { user } = useUser();
   const { setData } = useData();
 
-  const recognitionRef = useRef<any>(null);
+  // We'll use a more generic type that's sufficient for our needs
+  type SpeechRecognitionInstance = {
+    continuous: boolean;
+    interimResults: boolean;
+    lang: string;
+    maxAlternatives: number;
+    onresult: Function;
+    onend: Function;
+    onerror: Function;
+    start: () => void;
+    stop: () => void;
+  };
+
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const finalTranscriptRef = useRef("");
   const isComponentMounted = useRef(true);
 
@@ -56,12 +93,15 @@ export function AddPatientModal({
     // Clean up any existing instance first
     cleanupSpeechRecognition();
 
-    if (!isComponentMounted.current) return;
+    if (!isComponentMounted.current) return null;
 
     if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
       try {
+        // Use a simple type assertion here to avoid complex type definitions
         const SpeechRecognition =
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (window as any).webkitSpeechRecognition ||
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (window as any).SpeechRecognition;
 
         const recognition = new SpeechRecognition();
@@ -71,6 +111,8 @@ export function AddPatientModal({
         // Increase maxAlternatives to improve recognition
         recognition.maxAlternatives = 3;
 
+        // We'll use a generic event type for simplicity
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         recognition.onresult = (event: any) => {
           if (!isComponentMounted.current) return;
 
@@ -118,7 +160,7 @@ export function AddPatientModal({
           }
         };
 
-        recognition.onerror = (event: any) => {
+        recognition.onerror = (event: { error: string }) => {
           if (!isComponentMounted.current) return;
 
           // Only log certain errors
@@ -145,9 +187,9 @@ export function AddPatientModal({
     if (recognitionRef.current) {
       try {
         // First remove all event handlers
-        recognitionRef.current.onresult = null;
-        recognitionRef.current.onend = null;
-        recognitionRef.current.onerror = null;
+        recognitionRef.current.onresult = () => {};
+        recognitionRef.current.onend = () => {};
+        recognitionRef.current.onerror = () => {};
 
         // Then stop recognition
         recognitionRef.current.stop();
@@ -181,7 +223,7 @@ export function AddPatientModal({
         }
       }, 500);
     }
-  }, [isHindi]);
+  }, [isHindi, isRecording]);
 
   const startRecording = () => {
     if (isRecording) return;

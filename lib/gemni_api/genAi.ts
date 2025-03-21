@@ -22,7 +22,7 @@ export interface patientIn {
 export async function generate(prompt: string, info: string) {
   try {
     const result = await model.generateContent(prompt + "\n\n" + info);
-    let ans = JSON.parse(
+    const ans = JSON.parse(
       result.response.text().replace(/```/g, "").replace(/json/g, "")
     );
     return ans;

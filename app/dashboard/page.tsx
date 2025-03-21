@@ -49,7 +49,10 @@ export default function Dashboard() {
   const addPatient = (patient: Patient) => {
     setPatients([
       ...patients,
-      { ...patient, id: (patients.length + 1).toString() },
+      {
+        ...patient,
+        id: patient.id || (patients.length + 1).toString(),
+      },
     ]);
   };
 
@@ -60,7 +63,6 @@ export default function Dashboard() {
     if (searchQuery === "") {
       getPatients();
     } else {
-      const api = `/api/search?doctorId=${doctorId}`;
       const results = await debouncedSearch(searchQuery);
 
       setPatients(results || []);

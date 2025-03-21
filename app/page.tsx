@@ -175,7 +175,7 @@ export default function LandingPage() {
                   icon: <Calendar className="h-10 w-10 text-gray-900" />,
                   title: "Smart Scheduling",
                   description:
-                    "Streamline your clinic's schedule with our intuitive voice-controlled appointment system.",
+                    "Streamline your clinic&apos;s schedule with our intuitive voice-controlled appointment system.",
                 },
                 {
                   icon: <Shield className="h-10 w-10 text-gray-900" />,
@@ -215,8 +215,8 @@ export default function LandingPage() {
                 Loved by healthcare professionals
               </h2>
               <p className="text-gray-600 md:text-xl">
-                Don't just take our word for it. See what doctors and clinic
-                staff have to say about VoiceMD.
+                Don&apos;t just take our word for it. See what doctors and
+                clinic staff have to say about VoiceMD.
               </p>
             </div>
             <div className="grid grid-cols-1 gap-8 md:grid-cols-3 mt-16 max-w-6xl mx-auto">
@@ -230,7 +230,7 @@ export default function LandingPage() {
                 },
                 {
                   quote:
-                    "The voice recognition accuracy is incredible, even with complex medical terminology. It's like having a medical scribe that never makes mistakes.",
+                    "The voice recognition accuracy is incredible, even with complex medical terminology. It&apos;s like having a medical scribe that never makes mistakes.",
                   name: "Dr. Michael Chen",
                   role: "Internal Medicine",
                   rating: 5,
@@ -257,7 +257,9 @@ export default function LandingPage() {
                         />
                       ))}
                   </div>
-                  <p className="flex-1 text-gray-600">"{testimonial.quote}"</p>
+                  <p className="flex-1 text-gray-600">
+                    &quot;{testimonial.quote}&quot;
+                  </p>
                   <div className="flex items-center gap-4">
                     <div className="rounded-full bg-gray-900 p-1">
                       <div className="rounded-full bg-white h-10 w-10 flex items-center justify-center text-gray-900 font-medium">
@@ -296,8 +298,8 @@ export default function LandingPage() {
                 Currently Free for Early Users
               </h2>
               <p className="text-gray-600 md:text-xl">
-                For a limited time, we're offering VoiceMD completely free to
-                early adopters. Get full access to all features with no
+                For a limited time, we&apos;re offering VoiceMD completely free
+                to early adopters. Get full access to all features with no
                 limitations.
               </p>
             </div>
@@ -388,7 +390,7 @@ export default function LandingPage() {
                 {
                   question: "How accurate is the voice recognition?",
                   answer:
-                    "VoiceMD uses Google's speech-to-text it is 99% accurate for slow speech, and over 90% for fast speech.",
+                    "VoiceMD uses Google&apos;s speech-to-text it is 99% accurate for slow speech, and over 90% for fast speech.",
                 },
                 {
                   question: "Is VoiceMD Secure?",

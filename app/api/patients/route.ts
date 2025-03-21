@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
-import { patientTable, visitsTable } from "@/lib/db/schema";
-import { generate, patientIn } from "@/lib/gemni_api/genAi";
+import { patientTable } from "@/lib/db/schema";
+// import { visitsTable } from "@/lib/db/schema";
+// import { patientIn } from "@/lib/types";
+import { generate } from "@/lib/gemni_api/genAi";
 import { and, count, desc, eq, or, sql } from "drizzle-orm";
 // import { NextApiRequest, NextApiResponse } from "next";
 import { NextRequest, NextResponse } from "next/server";

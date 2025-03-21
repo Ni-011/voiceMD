@@ -23,13 +23,13 @@ import { useState, useEffect } from "react";
 import { Skeleton } from "../components/ui/skeleton";
 
 export interface Patient {
-  id: string;
+  id?: string;
   name: string;
-  age: number;
+  age: string | number;
   gender: string;
-  condition: string;
-  status: string;
-  lastVisit: string;
+  condition?: string;
+  status?: string;
+  lastVisit?: string;
 }
 
 interface PatientsTableProps {
@@ -47,7 +47,8 @@ export function PatientsTable({
     setPatients(initialPatients || []);
   }, [initialPatients]);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
     return new Intl.DateTimeFormat("en-US", {
       day: "numeric",
@@ -59,6 +60,8 @@ export function PatientsTable({
 
   // Update patient status
   const updatePatientStatus = async (patientId: string, status: string) => {
+    if (!patientId) return;
+
     try {
       const response = await fetch("/api/patients/status", {
         method: "PATCH",
@@ -69,8 +72,6 @@ export function PatientsTable({
       });
 
       if (response.ok) {
-        const result = await response.json();
-
         // Update the local state
         setPatients((currentPatients) =>
           currentPatients.map((patient) =>
@@ -85,15 +86,15 @@ export function PatientsTable({
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statuses = {
+  const getStatusBadge = (status: string | undefined) => {
+    const statuses: Record<string, string> = {
       Active: "bg-green-100 text-green-800 border-green-200",
       Inactive: "bg-orange-100 text-orange-800 border-orange-200",
       Discharged: "bg-blue-100 text-blue-800 border-blue-200",
     };
 
     const statusClass =
-      statuses[status as keyof typeof statuses] ||
+      (status && statuses[status]) ||
       "bg-gray-100 text-gray-800 border-gray-200";
 
     return (
@@ -174,7 +175,7 @@ export function PatientsTable({
                   ) {
                     return;
                   }
-                  router.push(`/profile?id=${patient.id}`);
+                  patient.id && router.push(`/profile?id=${patient.id}`);
                 }}
               >
                 <TableCell className="font-medium text-base py-4 sm:py-5">
@@ -193,9 +194,9 @@ export function PatientsTable({
                 </TableCell>
                 <TableCell
                   className="max-w-[100px] sm:max-w-[200px] truncate text-base py-4 sm:py-5"
-                  title={patient.condition}
+                  title={patient.condition || ""}
                 >
-                  {patient.condition}
+                  {patient.condition || ""}
                 </TableCell>
                 <TableCell className="py-4 sm:py-5">
                   {getStatusBadge(patient.status)}
@@ -219,7 +220,11 @@ export function PatientsTable({
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuItem
                         className="cursor-pointer"
-                        onClick={() => router.push(`/profile?id=${patient.id}`)}
+                        onClick={() => {
+                          if (patient.id) {
+                            router.push(`/profile?id=${patient.id}`);
+                          }
+                        }}
                       >
                         View patient
                       </DropdownMenuItem>
@@ -235,7 +240,9 @@ export function PatientsTable({
                         className="cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
-                          updatePatientStatus(patient.id, "Active");
+                          if (patient.id) {
+                            updatePatientStatus(patient.id, "Active");
+                          }
                         }}
                       >
                         <div className="flex items-center">
@@ -247,7 +254,9 @@ export function PatientsTable({
                         className="cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
-                          updatePatientStatus(patient.id, "Inactive");
+                          if (patient.id) {
+                            updatePatientStatus(patient.id, "Inactive");
+                          }
                         }}
                       >
                         <div className="flex items-center">
@@ -259,7 +268,9 @@ export function PatientsTable({
                         className="cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
-                          updatePatientStatus(patient.id, "Discharged");
+                          if (patient.id) {
+                            updatePatientStatus(patient.id, "Discharged");
+                          }
                         }}
                       >
                         <div className="flex items-center">

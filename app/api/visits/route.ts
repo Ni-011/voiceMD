@@ -1,28 +1,29 @@
 import { db } from "@/lib/db";
 import { patientTable, visitsTable } from "@/lib/db/schema";
-import { generate } from "@/lib/gemni_api/genAi";
+// import { generate } from "@/lib/gemni_api/genAi";
 import { and, desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
-const prompt_visits = `
-  You are a medical report generator. Your task is to take the provided JSON data and transform it into a more detailed and well-structured sentence format while keeping the original schema intact. Follow these steps:
-
-1. **Enhance the Data**:
-   - Expand each field into a detailed sentence.
-   - Use professional medical terminology.
-   - Ensure the structure of the JSON remains the same (e.g., arrays stay as arrays, objects stay as objects).
-
-2. **Example Transformation**:
-   - Input: "disease": ["arthritis", "diabetes"]
-   - Output: "disease": ["Diagnosed with chronic arthritis", "Diagnosed with type 2 diabetes"]
-
-3. **Formatting**:
-   - Use proper capitalization and punctuation.
-   - Keep the JSON structure clean and readable.
-
-4. **Output**:
-   - Return the enhanced JSON data in the same schema but with detailed sentences.
-`;
+// Comment out or remove unused variable
+// const prompt_visits = `
+//   You are a medical report generator. Your task is to take the provided JSON data and transform it into a more detailed and well-structured sentence format while keeping the original schema intact. Follow these steps:
+//
+// 1. **Enhance the Data**:
+//    - Expand each field into a detailed sentence.
+//    - Use professional medical terminology.
+//    - Ensure the structure of the JSON remains the same (e.g., arrays stay as arrays, objects stay as objects).
+//
+// 2. **Example Transformation**:
+//    - Input: "disease": ["arthritis", "diabetes"]
+//    - Output: "disease": ["Diagnosed with chronic arthritis", "Diagnosed with type 2 diabetes"]
+//
+// 3. **Formatting**:
+//    - Use proper capitalization and punctuation.
+//    - Keep the JSON structure clean and readable.
+//
+// 4. **Output**:
+//    - Return the enhanced JSON data in the same schema but with detailed sentences.
+// `;
 
 export async function POST(req: NextRequest) {
   try {
