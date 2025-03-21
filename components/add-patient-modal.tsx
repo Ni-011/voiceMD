@@ -3,7 +3,7 @@
 import type React from "react";
 
 import { useState, useRef, useEffect } from "react";
-import { Mic, MicOff, Languages, Loader2 } from "lucide-react";
+import { Mic, MicOff, Languages, Loader2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -186,10 +186,6 @@ export function AddPatientModal({
   const startRecording = () => {
     if (isRecording) return;
 
-    // Reset transcript
-    setTranscript("");
-    finalTranscriptRef.current = "";
-
     // Initialize with current language
     const recognition = initializeSpeechRecognition(
       isHindi ? "hi-IN" : "en-US"
@@ -278,10 +274,13 @@ export function AddPatientModal({
     setGender("Male");
     setPhone("");
     setEmail("");
-    setTranscript("");
     setIsRecording(false);
-    finalTranscriptRef.current = "";
     cleanupSpeechRecognition();
+  };
+
+  const clearTranscript = () => {
+    setTranscript("");
+    finalTranscriptRef.current = "";
   };
 
   // Loading overlay component
@@ -535,17 +534,32 @@ export function AddPatientModal({
                 <div className="sm:text-right">
                   <Label className="text-sm font-medium">Transcription</Label>
                 </div>
-                <Textarea
-                  value={transcript}
-                  onChange={(e) => setTranscript(e.target.value)}
-                  className="sm:col-span-3 min-h-[100px] text-sm p-3"
-                  placeholder={
-                    isRecording
-                      ? "Speak now..."
-                      : "Transcription will appear here"
-                  }
-                  disabled={isLoading}
-                />
+                <div className="sm:col-span-3 relative">
+                  <Textarea
+                    value={transcript}
+                    onChange={(e) => setTranscript(e.target.value)}
+                    className="min-h-[100px] text-sm p-3 pr-10"
+                    placeholder={
+                      isRecording
+                        ? "Speak now..."
+                        : "Transcription will appear here"
+                    }
+                    disabled={isLoading}
+                  />
+                  {transcript && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={clearTranscript}
+                      className="absolute right-2 top-2 h-7 w-7 p-0"
+                      disabled={isLoading}
+                      aria-label="Clear transcription"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
             <DialogFooter className="mt-5 gap-2 flex-col sm:flex-row">

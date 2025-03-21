@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Search, Mic, Bell } from "lucide-react";
+import { Plus, Search, Mic } from "lucide-react";
 import { UserButton, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 
@@ -105,16 +105,6 @@ export default function Dashboard() {
             </div>
           </Link>
           <div className="flex items-center gap-3 sm:gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative h-8 w-8 sm:h-10 sm:w-10 bg-white text-black hover:bg-gray-100 cursor-pointer"
-            >
-              <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="absolute -right-1 -top-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-red-500 text-[8px] sm:text-[10px] text-white">
-                3
-              </span>
-            </Button>
             {isLoaded && (
               <UserButton
                 afterSignOutUrl="/"
