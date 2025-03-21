@@ -3,8 +3,8 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 
 interface ApiData {
-  symptoms?: string;
   diagnosis: Array<string>;
+  symptoms?: string;
   prescriptions: {
     prescribe_meds: Array<{
       nameofmedicine: string;

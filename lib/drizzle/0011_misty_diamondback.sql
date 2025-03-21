@@ -1,0 +1,1 @@
+ALTER TABLE "visits" RENAME COLUMN "sym_obs" TO "symptoms";

@@ -3,6 +3,7 @@ import {
   integer,
   json,
   pgTable,
+  text,
   timestamp,
   uuid,
   varchar,
@@ -26,6 +27,7 @@ export const visitsTable = pgTable("visits", {
   id: uuid("id").primaryKey().defaultRandom(),
   diagnosis: json("diagnosis").default([]),
   prescriptions: json("prescriptions").default([]),
+  symptoms: text("symptoms").default(""),
   patientId: uuid("patientId").references(() => patientTable.id, {
     onDelete: "cascade",
   }),

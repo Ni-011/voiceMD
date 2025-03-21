@@ -1,0 +1,1 @@
+ALTER TABLE "visits" ADD COLUMN "sym_obs" json DEFAULT '[]'::json;

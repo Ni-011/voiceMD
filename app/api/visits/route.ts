@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       visitId,
       extraPrescriptions: topLevelExtraPrescriptions,
       prescriptions,
+      symptoms,
     } = requestBody;
 
     // Log entire request for debugging
@@ -83,6 +84,7 @@ export async function POST(req: NextRequest) {
         .update(visitsTable)
         .set({
           diagnosis: safeData.diagnosis,
+          symptoms: symptoms,
           prescriptions: {
             prescribe_meds: safeData.prescribe_meds,
             precautions: safeData.precautions,
@@ -122,6 +124,7 @@ export async function POST(req: NextRequest) {
     const new_visit = await db.insert(visitsTable).values({
       patientId: safeData.patientId,
       diagnosis: safeData.diagnosis,
+      symptoms: symptoms,
       prescriptions: {
         prescribe_meds: safeData.prescribe_meds,
         precautions: safeData.precautions,

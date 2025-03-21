@@ -15,6 +15,8 @@ const prompt_info = `
   - precautions
   - condition
   - status
+  - symptoms
+  - extraPrescriptions
 
   Format:
   - diagnosis should be a JSON array containing multiple diagnoses if available.
@@ -23,6 +25,8 @@ const prompt_info = `
   - If any information is not present, return [] for that field.
   - For condition you have to self evaluate the whole text and give a response in string, that what condition is person having as a problem(in few words(3-4)).
   - For status you have to self evaluate the whole text and give a response in string from these values namely(Active, Inactive, Discharged).
+  - For symptoms you have to self evaluate the whole text and give a response in string for the symptoms and observation you think occur in patient from the given report from user.
+  - For extraPrescriptions scan for any left out additional prescriptions you 'think' is required by the patient from the given report from user in a string.
 
 1. **Enhance the Data (except for condition, nameofmedicine, frequency, dosage, emptyStomach and status fields)**:
    - Expand each field into a detailed sentence EXCEPT for the "name" ,"gender", phone, email fields, which should remain untouched.
@@ -99,9 +103,11 @@ export async function POST(req: NextRequest) {
         {
           new_visit: {
             diagnosis: patient_info?.diagnosis,
+            symptoms: patient_info?.symptoms,
             prescriptions: {
               prescribe_meds: patient_info?.prescriptions,
               precautions: patient_info?.precautions,
+              extraPrescriptions: patient_info?.extraPrescriptions,
             },
             patientId: ifPatientAvailable[0]?.id,
           },
@@ -139,9 +145,11 @@ export async function POST(req: NextRequest) {
         new_patient: new_patient[0],
         new_visit: {
           diagnosis: patient_info?.diagnosis,
+          sym_obs: patient_info?.sym_obs,
           prescriptions: {
             prescribe_meds: patient_info?.prescriptions,
             precautions: patient_info?.precautions,
+            extraPrescriptions: patient_info?.extraPrescriptions,
           },
           patientId: new_patient[0]?.id,
         },

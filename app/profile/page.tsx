@@ -36,10 +36,12 @@ interface PrescribedMedication {
 interface SelectedVisit {
   id: string;
   diagnosis: string[];
+  symptoms?: string;
   date?: string;
   prescriptions: {
     precautions: string[];
     prescribe_meds: PrescribedMedication[];
+    extraPrescriptions: string;
   };
 }
 
@@ -479,6 +481,25 @@ function ProfileContent() {
                 </div>
               </div>
 
+              {/* Symptoms & Observaation Card */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md print:p-4 print:hover:shadow-none print:shadow-none">
+                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center">
+                  <FileText className="mr-2 text-teal-600 flex-shrink-0" />
+                  Symptoms & Observation
+                </h2>
+                <div className="space-y-3">
+                  {selectedVisit.symptoms ? (
+                    <div className="bg-teal-50/70 p-4 rounded-xl border-l-4 border-teal-500 text-gray-700">
+                      {selectedVisit.symptoms}
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 p-4 rounded-xl text-gray-500 text-center">
+                      No Symptoms recorded for this visit
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Vital Stats Card */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md print:p-4 print:hover:shadow-none print:shadow-none">
                 <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center">
@@ -615,6 +636,25 @@ function ProfileContent() {
                 ) : (
                   <div className="bg-gray-50 p-4 rounded-xl text-gray-500 text-center">
                     No precautions recorded for this visit
+                  </div>
+                )}
+              </div>
+
+              {/* Extraprescriptions */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md print:p-4 print:hover:shadow-none print:shadow-none">
+                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 flex items-center">
+                  <AlertCircle className="mr-2 text-amber-500 flex-shrink-0" />
+                  Extraprescriptions
+                </h2>
+                {selectedVisit?.prescriptions?.extraPrescriptions ? (
+                  <div className="space-y-3">
+                    <div className="bg-amber-50 p-4 rounded-xl border-l-4 border-yellow-400 text-gray-700">
+                      {selectedVisit?.prescriptions?.extraPrescriptions}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 p-4 rounded-xl text-gray-500 text-center">
+                    No Extraprescriptions recorded for this visit
                   </div>
                 )}
               </div>
