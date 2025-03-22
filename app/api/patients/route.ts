@@ -26,7 +26,7 @@ const prompt_info = `
   - For condition you have to self evaluate the whole text and give a response in string, that what condition is person having as a problem(in few words(3-4)).
   - For status you have to self evaluate the whole text and give a response in string from these values namely(Active, Inactive, Discharged).
   - For symptoms you have to self evaluate the whole text and give a response in string for the symptoms and observation you think occur in patient from the given report from user.
-  - For extraPrescriptions scan for any left out additional prescriptions you 'think' is required by the patient from the given report from user in a string.
+  - For extraPrescriptions scan for any left out additional prescriptions from the given report from user in a string(do not add something extra).
 
 1. **Enhance the Data (except for condition, nameofmedicine, frequency, dosage, emptyStomach and status fields)**:
    - Expand each field into a detailed sentence EXCEPT for the "name" ,"gender", phone, email fields, which should remain untouched.
@@ -50,6 +50,8 @@ const prompt_info = `
 5. **Note**:
    - If you find any words wrong please senitithe text before returning response like proper spelling (no mistakes) and proper formatting and punctuaution of the words.
    - Sanitizing the sentences is importnat so that it does display wrong medicines and other words.
+   - If there is a typo in medicine name correct it.
+   - Please do not hellucunate and apply it properly.
 `;
 
 export async function POST(req: NextRequest) {
