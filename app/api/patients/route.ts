@@ -46,6 +46,10 @@ const prompt_info = `
 4. **Output**:
    - Return the enhanced JSON data in the same schema but with detailed sentences.
   If any information is not present, return null for that field.
+
+5. **Note**:
+   - If you find any words wrong please senitithe text before returning response like proper spelling (no mistakes) and proper formatting and punctuaution of the words.
+   - Sanitizing the sentences is importnat so that it does display wrong medicines and other words.
 `;
 
 export async function POST(req: NextRequest) {
