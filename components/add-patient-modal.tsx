@@ -297,17 +297,37 @@ export function AddPatientModal({
               mobileRecordingInterval.current = null;
             }
 
-            // Set up automatic restart every 5 seconds
+            // Set up automatic restart every 2 seconds (reduced from 3s)
             mobileRecordingInterval.current = setInterval(() => {
-              if (
-                isRecording &&
-                recognitionRef.current &&
-                isComponentMounted.current
-              ) {
+              if (isRecording && isComponentMounted.current) {
                 console.log("Auto-restarting Chrome Android recognition");
                 try {
-                  // Stop the current recognition session
-                  recognitionRef.current.stop();
+                  // Stop the current recognition session if it exists
+                  if (recognitionRef.current) {
+                    recognitionRef.current.stop();
+                  }
+
+                  // Create a new instance immediately after stopping
+                  setTimeout(() => {
+                    if (isRecording && isComponentMounted.current) {
+                      const newRecognition = initializeSpeechRecognition(
+                        isHindi ? "hi-IN" : "en-US"
+                      );
+                      if (newRecognition) {
+                        try {
+                          newRecognition.start();
+                          console.log(
+                            "Created new instance in interval auto-restart"
+                          );
+                        } catch (innerError) {
+                          console.log(
+                            "Error starting new instance in interval:",
+                            innerError
+                          );
+                        }
+                      }
+                    }
+                  }, 100); // Shorter delay for more responsive restart
                 } catch (error) {
                   console.log("Error stopping for auto-restart:", error);
                   // If there's an error stopping, try to create a new instance directly
@@ -328,7 +348,7 @@ export function AddPatientModal({
                 clearInterval(mobileRecordingInterval.current);
                 mobileRecordingInterval.current = null;
               }
-            }, 3000); // Reduce from 5s to 3s for more aggressive restarts
+            }, 2000); // Reduced from 3s to 2s for more frequent restarts
           }
         }
       };
@@ -340,7 +360,7 @@ export function AddPatientModal({
         // Special handling for Chrome on Android - restart immediately if still recording
         if (isRecording && isChromeOnAndroid() && autoRestartRecording) {
           try {
-            // Brief delay before restarting
+            // Shorter delay before restarting
             setTimeout(() => {
               if (isRecording && isComponentMounted.current) {
                 console.log("Restarting Chrome Android recognition after end");
@@ -349,10 +369,26 @@ export function AddPatientModal({
                   isHindi ? "hi-IN" : "en-US"
                 );
                 if (newRecognition) {
-                  newRecognition.start();
+                  try {
+                    newRecognition.start();
+                    console.log(
+                      "Successfully restarted Chrome Android recognition after end"
+                    );
+                  } catch (startError) {
+                    console.error("Error starting after onend:", startError);
+                    // Try one more time with a different approach
+                    setTimeout(() => {
+                      if (isRecording && isComponentMounted.current) {
+                        const finalAttempt = initializeSpeechRecognition(
+                          isHindi ? "hi-IN" : "en-US"
+                        );
+                        if (finalAttempt) finalAttempt.start();
+                      }
+                    }, 150);
+                  }
                 }
               }
-            }, 300);
+            }, 150); // Shorter delay (300ms→150ms) for more responsive restart
           } catch (error) {
             console.error(
               "Failed to handle Chrome Android recognition end:",
