@@ -109,6 +109,30 @@ export function AddPatientModal({
         recognitionRef.current = null;
       }
     }
+
+    // Additional cleanup: try to release any microphone streams
+    try {
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          stream.getTracks().forEach((track) => {
+            track.stop();
+            console.log("Released audio track");
+          });
+        })
+        .catch((err) => {});
+    } catch (err) {
+      // Ignore errors during extra cleanup
+    }
+  };
+
+  // Add a function to detect mobile browsers
+  const isMobileBrowser = () => {
+    const userAgent =
+      navigator.userAgent || navigator.vendor || (window as any).opera;
+    return /android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      userAgent
+    );
   };
 
   // Initialize speech recognition
@@ -182,7 +206,8 @@ export function AddPatientModal({
         console.log("Speech recognition ended");
         if (!isComponentMounted.current) return;
 
-        if (isRecording) {
+        // Don't auto-restart on mobile browsers as it can cause conflicts
+        if (isRecording && !isMobileBrowser()) {
           try {
             // Restart recognition more quickly
             setTimeout(() => {
@@ -200,6 +225,9 @@ export function AddPatientModal({
               setIsRecording(false);
             }
           }
+        } else if (isRecording && isMobileBrowser()) {
+          // For mobile, explicitly set recording state to false when recognition ends
+          setIsRecording(false);
         }
       };
 
@@ -207,12 +235,37 @@ export function AddPatientModal({
         console.error("Speech recognition error:", event.error);
         if (!isComponentMounted.current) return;
 
-        // Only log certain errors
-        if (event.error !== "no-speech" && event.error !== "aborted") {
-          console.error("Speech recognition error:", event.error);
-          if (isComponentMounted.current) {
-            setIsRecording(false);
+        // Handle specific errors
+        if (
+          event.error === "not-allowed" ||
+          event.error === "service-not-allowed"
+        ) {
+          toast.error("Microphone Access Denied", {
+            description:
+              "Please allow microphone access to use voice recording.",
+          });
+          setIsRecording(false);
+        } else if (event.error === "network") {
+          toast.error("Network Error", {
+            description: "Check your internet connection and try again.",
+          });
+          setIsRecording(false);
+        } else if (event.error === "aborted") {
+          // This is normal when stopping - don't show error
+          console.log("Recognition aborted");
+        } else if (event.error === "no-speech") {
+          // No speech detected - don't show error
+          console.log("No speech detected");
+        } else {
+          // For any other errors on mobile, show a user-friendly message
+          if (isMobileBrowser()) {
+            toast.error("Recording Error", {
+              description:
+                "Please close other apps that might be using the microphone.",
+            });
           }
+          console.error("Speech recognition error:", event.error);
+          setIsRecording(false);
         }
       };
 
@@ -283,10 +336,53 @@ export function AddPatientModal({
       return;
     }
 
+    // Force release any existing microphone access before requesting new permissions
+    try {
+      // Get all media devices and stop them
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          // Stop all tracks to ensure microphone is fully released
+          stream.getTracks().forEach((track) => {
+            track.stop();
+          });
+
+          // Small delay before requesting microphone again
+          setTimeout(() => {
+            // After ensuring mic is released, initialize recognition
+            initializeMicrophoneAccess();
+          }, 300);
+        })
+        .catch((error) => {
+          console.error("Error releasing microphone:", error);
+          // Try to initialize anyway
+          initializeMicrophoneAccess();
+        });
+    } catch (error) {
+      console.error("Error managing media devices:", error);
+      // Try to initialize anyway as a fallback
+      initializeMicrophoneAccess();
+    }
+  };
+
+  const initializeMicrophoneAccess = () => {
     // Request microphone permission explicitly
     navigator.mediaDevices
       .getUserMedia({ audio: true })
-      .then(() => {
+      .then((stream) => {
+        // For mobile browsers, we need to handle the stream differently
+        // Store the stream to release it properly later
+        const audioTracks = stream.getAudioTracks();
+
+        // On mobile, we can safely stop the stream after permission is granted
+        // This prevents the "chrome is recording" conflict
+        audioTracks.forEach((track) => {
+          // Keep the track enabled but stop it - this signals we have permission
+          // but aren't currently using it
+          track.enabled = true;
+          // Don't actually stop it yet as it might cause issues with recognition
+        });
+
         // After permission is granted, initialize recognition
         const recognition = initializeSpeechRecognition(
           isHindi ? "hi-IN" : "en-US"
@@ -303,12 +399,16 @@ export function AddPatientModal({
               description: "Please check your microphone permissions.",
             });
             cleanupSpeechRecognition();
+            // Make sure to stop all tracks if recognition fails
+            audioTracks.forEach((track) => track.stop());
           }
         } else {
           toast.error("Speech Recognition Failed", {
             description:
               "Could not initialize speech recognition. Please try again.",
           });
+          // Make sure to stop all tracks if recognition fails
+          audioTracks.forEach((track) => track.stop());
         }
       })
       .catch((error) => {
@@ -326,6 +426,14 @@ export function AddPatientModal({
     try {
       cleanupSpeechRecognition();
       console.log("Recording stopped successfully");
+
+      // Additional cleanup for mobile: ensure any active media streams are stopped
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          stream.getTracks().forEach((track) => track.stop());
+        })
+        .catch((err) => console.log("No active stream to clean up"));
     } catch (error) {
       console.error("Error stopping recording:", error);
     } finally {
@@ -651,6 +759,13 @@ export function AddPatientModal({
                       {isHindi ? "Hindi" : "English"}
                     </Label>
                   </div>
+                  {/* Mobile hint message */}
+                  {isMobileBrowser() && (
+                    <div className="w-full mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-md border border-amber-100">
+                      <strong>Mobile tip:</strong> For best results, close other
+                      apps using your microphone before recording.
+                    </div>
+                  )}
                   {/* DevTool for debugging voice recognition */}
                   {process.env.NODE_ENV === "development" && (
                     <div className="ml-auto" title="Debug Voice Recognition">
@@ -665,6 +780,7 @@ export function AddPatientModal({
                           );
                           console.log("Is recording:", isRecording);
                           console.log("Transcript:", transcript);
+                          console.log("Is mobile:", isMobileBrowser());
 
                           if (!isRecording) {
                             // Force recreation of recognition instance
