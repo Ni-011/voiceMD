@@ -92,11 +92,16 @@ export function AddPatientModal({
 
   // Add a safety check function for mediaDevices
   const hasMediaDevices = () => {
-    return !!(
-      navigator &&
-      navigator.mediaDevices &&
-      navigator.mediaDevices.getUserMedia
-    );
+    try {
+      return !!(
+        typeof navigator !== "undefined" &&
+        navigator.mediaDevices &&
+        typeof navigator.mediaDevices.getUserMedia === "function"
+      );
+    } catch (err) {
+      console.warn("Error checking for mediaDevices availability:", err);
+      return false;
+    }
   };
 
   // Clean up speech recognition
@@ -157,6 +162,10 @@ export function AddPatientModal({
     return /android/i.test(userAgent) && /chrome/i.test(userAgent);
   };
 
+  // Add state to track if we should auto-restart recording
+  const [autoRestartRecording, setAutoRestartRecording] = useState(true);
+  const mobileRecordingInterval = useRef<any>(null);
+
   // Initialize speech recognition
   const initializeSpeechRecognition = (language: string) => {
     // Clean up any existing instance first
@@ -188,10 +197,10 @@ export function AddPatientModal({
         throw new Error("No speech recognition support available");
       }
 
-      // For Chrome on Android, use different settings to prevent conflicts
+      // For Chrome on Android, we need special settings, but allow for continuous option
       if (isChromeOnAndroid()) {
-        recognition.continuous = false; // Important: setting to false for Chrome on Android
-        recognition.interimResults = false; // Get only final results
+        recognition.continuous = false; // Must be false for Chrome on Android
+        recognition.interimResults = false; // Only get final results for stability
       } else {
         recognition.continuous = true;
         recognition.interimResults = true;
@@ -227,6 +236,27 @@ export function AddPatientModal({
         console.log("Speech recognition started");
         if (isComponentMounted.current) {
           setIsRecording(true);
+
+          // For Chrome on Android, set up a recurring restart to simulate continuous mode
+          if (isChromeOnAndroid() && autoRestartRecording) {
+            // Clear any existing interval
+            if (mobileRecordingInterval.current) {
+              clearInterval(mobileRecordingInterval.current);
+            }
+
+            // Set up automatic restart every 5 seconds
+            mobileRecordingInterval.current = setInterval(() => {
+              if (isRecording && recognitionRef.current) {
+                console.log("Auto-restarting Chrome Android recognition");
+                try {
+                  // Stop the current recognition session
+                  recognitionRef.current.stop();
+                } catch (error) {
+                  console.log("Error stopping for auto-restart:", error);
+                }
+              }
+            }, 5000); // 5 seconds is usually enough to get some speech without hitting timeout
+          }
         }
       };
 
@@ -234,28 +264,19 @@ export function AddPatientModal({
         console.log("Speech recognition ended");
         if (!isComponentMounted.current) return;
 
-        // Special handling for Chrome on Android - restart manually if still recording
-        if (isRecording && isChromeOnAndroid()) {
+        // Special handling for Chrome on Android - restart immediately if still recording
+        if (isRecording && isChromeOnAndroid() && autoRestartRecording) {
           try {
-            // Brief delay to prevent overlapping instances
+            // Brief delay before restarting
             setTimeout(() => {
               if (isRecording && isComponentMounted.current) {
-                // Try to restart recognition for Chrome on Android
-                console.log("Attempting to restart Chrome Android recognition");
-                try {
-                  // Create a new instance instead of reusing
-                  const newRecognition = initializeSpeechRecognition(
-                    isHindi ? "hi-IN" : "en-US"
-                  );
-                  if (newRecognition) {
-                    newRecognition.start();
-                  }
-                } catch (innerError) {
-                  console.error(
-                    "Failed to restart Chrome Android recognition:",
-                    innerError
-                  );
-                  setIsRecording(false);
+                console.log("Restarting Chrome Android recognition after end");
+                // Create a new instance and restart
+                const newRecognition = initializeSpeechRecognition(
+                  isHindi ? "hi-IN" : "en-US"
+                );
+                if (newRecognition) {
+                  newRecognition.start();
                 }
               }
             }, 300);
@@ -265,6 +286,7 @@ export function AddPatientModal({
               error
             );
             setIsRecording(false);
+            clearChromeAndroidTimer();
           }
         }
         // Don't auto-restart on other mobile browsers as it can cause conflicts
@@ -279,7 +301,7 @@ export function AddPatientModal({
               ) {
                 recognitionRef.current.start();
               }
-            }, 100); // Reduced from 300ms to 100ms
+            }, 100);
           } catch (error) {
             console.error("Failed to restart recording:", error);
             if (isComponentMounted.current) {
@@ -289,6 +311,7 @@ export function AddPatientModal({
         } else if (isRecording && isMobileBrowser() && !isChromeOnAndroid()) {
           // For other mobile browsers, explicitly set recording state to false when recognition ends
           setIsRecording(false);
+          clearChromeAndroidTimer();
         }
       };
 
@@ -306,20 +329,23 @@ export function AddPatientModal({
               "Please allow microphone access to use voice recording.",
           });
           setIsRecording(false);
+          clearChromeAndroidTimer();
         } else if (event.error === "network") {
           toast.error("Network Error", {
             description: "Check your internet connection and try again.",
           });
           setIsRecording(false);
+          clearChromeAndroidTimer();
         } else if (event.error === "aborted") {
           // This is normal when stopping - don't show error
           console.log("Recognition aborted");
+          // Don't clear timer as this may be our own auto-restart
         } else if (event.error === "no-speech") {
           // No speech detected - don't show error
           console.log("No speech detected");
 
           // For Chrome on Android, we need to restart manually after no-speech
-          if (isChromeOnAndroid() && isRecording) {
+          if (isChromeOnAndroid() && isRecording && autoRestartRecording) {
             setTimeout(() => {
               if (isRecording && isComponentMounted.current) {
                 // Try to restart recognition
@@ -339,14 +365,19 @@ export function AddPatientModal({
                 "Please close other tabs or apps using the microphone, then try again.",
             });
             setIsRecording(false);
+            clearChromeAndroidTimer();
             // Force cleanup of any lingering microphone access
-            if (hasMediaDevices()) {
-              navigator.mediaDevices
-                .getUserMedia({ audio: true })
-                .then((stream) => {
-                  stream.getTracks().forEach((track) => track.stop());
-                })
-                .catch((err) => console.log("No streams to clean up"));
+            try {
+              if (hasMediaDevices()) {
+                navigator.mediaDevices
+                  .getUserMedia({ audio: true })
+                  .then((stream) => {
+                    stream.getTracks().forEach((track) => track.stop());
+                  })
+                  .catch((err) => console.log("No streams to clean up"));
+              }
+            } catch (err) {
+              console.log("Error during conflict cleanup:", err);
             }
           }
           // For any other errors on mobile, show a user-friendly message
@@ -354,9 +385,13 @@ export function AddPatientModal({
             toast.error("Recording Error", {
               description: "Please close other apps using the microphone.",
             });
+            setIsRecording(false);
+            clearChromeAndroidTimer();
+          } else {
+            console.error("Speech recognition error:", event.error);
+            setIsRecording(false);
+            clearChromeAndroidTimer();
           }
-          console.error("Speech recognition error:", event.error);
-          setIsRecording(false);
         }
       };
 
@@ -371,6 +406,14 @@ export function AddPatientModal({
     }
   };
 
+  // Helper to clear Chrome Android timer
+  const clearChromeAndroidTimer = () => {
+    if (mobileRecordingInterval.current) {
+      clearInterval(mobileRecordingInterval.current);
+      mobileRecordingInterval.current = null;
+    }
+  };
+
   // Effect for component mount/unmount
   useEffect(() => {
     isComponentMounted.current = true;
@@ -378,6 +421,7 @@ export function AddPatientModal({
     return () => {
       isComponentMounted.current = false;
       cleanupSpeechRecognition();
+      clearChromeAndroidTimer(); // Clean up timer on unmount
     };
   }, []);
 
@@ -456,54 +500,87 @@ export function AddPatientModal({
       return;
     }
 
-    // For other browsers, use the existing method with improvements
+    // For other browsers, we'll try with mediaDevices first if available, otherwise fall back
     try {
       // Check if mediaDevices is available
       if (hasMediaDevices()) {
-        // Get all media devices and stop them
-        navigator.mediaDevices
-          .getUserMedia({ audio: true })
-          .then((stream) => {
-            // Stop all tracks to ensure microphone is fully released
-            stream.getTracks().forEach((track) => {
-              track.stop();
-            });
+        try {
+          // Get all media devices and stop them
+          navigator.mediaDevices
+            .getUserMedia({ audio: true })
+            .then((stream) => {
+              // Stop all tracks to ensure microphone is fully released
+              stream.getTracks().forEach((track) => {
+                track.stop();
+              });
 
-            // Small delay before requesting microphone again
-            setTimeout(() => {
-              // After ensuring mic is released, initialize recognition
-              initializeMicrophoneAccess();
-            }, 300);
-          })
-          .catch((error) => {
-            console.error("Error releasing microphone:", error);
-            // Try to initialize anyway
-            initializeMicrophoneAccess();
-          });
+              // Small delay before requesting microphone again
+              setTimeout(() => {
+                // After ensuring mic is released, initialize recognition
+                initializeMicrophoneAccess();
+              }, 300);
+            })
+            .catch((error) => {
+              console.error("Error releasing microphone:", error);
+              // Try direct recognition as fallback
+              console.log(
+                "Falling back to direct recognition after getUserMedia error"
+              );
+              const recognition = initializeSpeechRecognition(
+                isHindi ? "hi-IN" : "en-US"
+              );
+              if (recognition) {
+                try {
+                  recognition.start();
+                } catch (innerError) {
+                  console.error(
+                    "Error starting fallback recognition:",
+                    innerError
+                  );
+                  toast.error("Failed to start recording", {
+                    description: "Please check your microphone permissions.",
+                  });
+                }
+              }
+            });
+        } catch (error) {
+          console.error(
+            "Error with navigator.mediaDevices.getUserMedia:",
+            error
+          );
+          // Try to initialize direct recognition
+          directRecognitionFallback();
+        }
       } else {
         console.log(
           "mediaDevices API not available, trying direct recognition"
         );
         // Fallback to direct recognition without mediaDevices
-        const recognition = initializeSpeechRecognition(
-          isHindi ? "hi-IN" : "en-US"
-        );
-        if (recognition) {
-          try {
-            recognition.start();
-          } catch (error) {
-            console.error("Error starting fallback recognition:", error);
-            toast.error("Failed to start recording", {
-              description:
-                "Microphone access is not available in this browser.",
-            });
-          }
-        }
+        directRecognitionFallback();
       }
     } catch (error) {
       console.error("Error managing media devices:", error);
-      // Try to initialize anyway as a fallback
-      initializeMicrophoneAccess();
+      // Try to initialize direct recognition as final fallback
+      directRecognitionFallback();
+    }
+  };
+
+  // Helper function for direct recognition without mediaDevices
+  const directRecognitionFallback = () => {
+    const recognition = initializeSpeechRecognition(
+      isHindi ? "hi-IN" : "en-US"
+    );
+    if (recognition) {
+      try {
+        recognition.start();
+        console.log("Started direct recognition (fallback)");
+      } catch (error) {
+        console.error("Error starting fallback recognition:", error);
+        toast.error("Failed to start recording", {
+          description: "Microphone access is not available in this browser.",
+        });
+        setIsRecording(false);
+      }
     }
   };
 
@@ -512,73 +589,86 @@ export function AddPatientModal({
     if (!hasMediaDevices()) {
       console.log("mediaDevices API not available, trying direct recognition");
       // Fallback to direct recognition without mediaDevices
-      const recognition = initializeSpeechRecognition(
-        isHindi ? "hi-IN" : "en-US"
-      );
-      if (recognition) {
-        try {
-          recognition.start();
-        } catch (error) {
-          console.error("Error starting fallback recognition:", error);
-          toast.error("Failed to start recording", {
-            description: "Microphone access is not available in this browser.",
-          });
-        }
-      }
+      directRecognitionFallback();
       return;
     }
 
-    // Request microphone permission explicitly
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((stream) => {
-        // For mobile browsers, we need to handle the stream differently
-        // Store the stream to release it properly later
-        const audioTracks = stream.getAudioTracks();
+    try {
+      // Request microphone permission explicitly
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          // For mobile browsers, we need to handle the stream differently
+          // Store the stream to release it properly later
+          const audioTracks = stream.getAudioTracks();
 
-        // On mobile, we can safely stop the stream after permission is granted
-        // This prevents the "chrome is recording" conflict
-        audioTracks.forEach((track) => {
-          // Keep the track enabled but stop it - this signals we have permission
-          // but aren't currently using it
-          track.enabled = true;
-          // Don't actually stop it yet as it might cause issues with recognition
-        });
+          // On mobile, we can safely stop the stream after permission is granted
+          // This prevents the "chrome is recording" conflict
+          audioTracks.forEach((track) => {
+            // Keep the track enabled but stop it - this signals we have permission
+            // but aren't currently using it
+            track.enabled = true;
+            // Don't actually stop it yet as it might cause issues with recognition
+          });
 
-        // After permission is granted, initialize recognition
-        const recognition = initializeSpeechRecognition(
-          isHindi ? "hi-IN" : "en-US"
-        );
+          // After permission is granted, initialize recognition
+          const recognition = initializeSpeechRecognition(
+            isHindi ? "hi-IN" : "en-US"
+          );
 
-        if (recognition) {
-          try {
-            recognition.start();
-            console.log("Recognition started");
-            // The onstart event will set isRecording to true
-          } catch (error) {
-            console.error("Error starting recording:", error);
-            toast.error("Failed to start recording", {
-              description: "Please check your microphone permissions.",
+          if (recognition) {
+            try {
+              recognition.start();
+              console.log("Recognition started");
+              // The onstart event will set isRecording to true
+            } catch (error) {
+              console.error("Error starting recording:", error);
+              toast.error("Failed to start recording", {
+                description: "Please check your microphone permissions.",
+              });
+              cleanupSpeechRecognition();
+              // Make sure to stop all tracks if recognition fails
+              audioTracks.forEach((track) => track.stop());
+            }
+          } else {
+            toast.error("Speech Recognition Failed", {
+              description:
+                "Could not initialize speech recognition. Please try again.",
             });
-            cleanupSpeechRecognition();
             // Make sure to stop all tracks if recognition fails
             audioTracks.forEach((track) => track.stop());
           }
-        } else {
-          toast.error("Speech Recognition Failed", {
-            description:
-              "Could not initialize speech recognition. Please try again.",
-          });
-          // Make sure to stop all tracks if recognition fails
-          audioTracks.forEach((track) => track.stop());
-        }
-      })
-      .catch((error) => {
-        console.error("Microphone permission denied:", error);
-        toast.error("Microphone Access Denied", {
-          description: "Please allow microphone access to use voice recording.",
+        })
+        .catch((error) => {
+          console.error("Microphone permission denied:", error);
+          // Try direct recognition without getUserMedia as a fallback
+          if (
+            error.name === "NotAllowedError" ||
+            error.name === "PermissionDeniedError"
+          ) {
+            toast.error("Microphone Access Denied", {
+              description:
+                "Please allow microphone access to use voice recording.",
+            });
+          } else if (error.name === "NotFoundError") {
+            toast.error("No Microphone Found", {
+              description: "Couldn't detect a microphone on your device.",
+            });
+          } else {
+            // For other errors, try fallback without showing error
+            console.log(
+              "Using speech recognition without microphone access due to:",
+              error.name
+            );
+            // Try a direct approach
+            directRecognitionFallback();
+          }
         });
-      });
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      // Fall back to direct recognition without mediaDevices
+      directRecognitionFallback();
+    }
   };
 
   // Update stopRecording function with Chrome-Android handling
@@ -586,19 +676,28 @@ export function AddPatientModal({
     console.log("Stopping recording...");
     if (!isRecording) return;
 
+    // Clear any auto-restart timers
+    clearChromeAndroidTimer();
+
     try {
       cleanupSpeechRecognition();
       console.log("Recording stopped successfully");
 
       // Only do additional stream cleanup for non-Chrome-Android browsers
-      if (!isChromeOnAndroid() && hasMediaDevices()) {
-        // Additional cleanup for mobile: ensure any active media streams are stopped
-        navigator.mediaDevices
-          .getUserMedia({ audio: true })
-          .then((stream) => {
-            stream.getTracks().forEach((track) => track.stop());
-          })
-          .catch((err) => console.log("No active stream to clean up"));
+      if (!isChromeOnAndroid()) {
+        try {
+          if (hasMediaDevices()) {
+            // Additional cleanup for mobile: ensure any active media streams are stopped
+            navigator.mediaDevices
+              .getUserMedia({ audio: true })
+              .then((stream) => {
+                stream.getTracks().forEach((track) => track.stop());
+              })
+              .catch((err) => console.log("No active stream to clean up"));
+          }
+        } catch (err) {
+          console.log("Error during stopRecording cleanup:", err);
+        }
       }
     } catch (error) {
       console.error("Error stopping recording:", error);
@@ -941,16 +1040,12 @@ export function AddPatientModal({
                               microphone
                             </li>
                             <li>
-                              Tap the microphone button once and wait for
-                              permission prompt
+                              Recording on mobile may pause briefly and then
+                              continue automatically
                             </li>
                             <li>
-                              If you see any errors, restart Chrome completely
-                              and try again
-                            </li>
-                            <li>
-                              Make sure your device allows microphone access in
-                              system settings
+                              If recording stops completely, tap the mic button
+                              again
                             </li>
                             <li>
                               For best results, use in a quiet environment
