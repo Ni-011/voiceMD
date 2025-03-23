@@ -1,10 +1,8 @@
 "use client";
 
 import type React from "react";
-
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Mic, MicOff, Languages, Loader2, X } from "lucide-react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -43,491 +41,237 @@ interface Patient {
   status?: string;
 }
 
-// Define SpeechRecognitionEvent type if needed
-interface SpeechRecognitionEvent {
-  resultIndex: number;
-  results: {
-    isFinal: boolean;
-    [index: number]: {
-      transcript: string;
-    }[];
-  }[];
-}
-
 export function AddPatientModal({
   isOpen,
   onClose,
   onAddPatient,
 }: AddPatientModalProps) {
+  // Form state
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("Male");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
+
+  // UI state
+  const [isRecording, setIsRecording] = useState(false);
   const [isHindi, setIsHindi] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [wordDetected, setWordDetected] = useState(false);
+
+  // Speech recognition refs
+  const recognitionRef = useRef<any>(null);
+
   const router = useRouter();
   const { user } = useUser();
   const { setData } = useData();
 
-  // We'll use a more generic type that's sufficient for our needs
-  type SpeechRecognitionInstance = {
-    continuous: boolean;
-    interimResults: boolean;
-    lang: string;
-    maxAlternatives: number;
-    onresult: Function;
-    onend: Function;
-    onstart: Function;
-    onerror: Function;
-    start: () => void;
-    stop: () => void;
-  };
+  // Setup speech recognition cleanup and page unload handler
+  useEffect(() => {
+    // Handle page unload/close - stop recording
+    const handleBeforeUnload = () => {
+      setIsRecording(false);
+      stopRecognition();
+    };
 
-  // Add references for our audio streaming setup
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  const finalTranscriptRef = useRef("");
-  const isComponentMounted = useRef(true);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const restartTimeoutRef = useRef<any>(null);
-  const hasTranscriptionCompleted = useRef(false);
-  const [autoRestartRecording, setAutoRestartRecording] = useState(true);
+    // Add event listener for page close/unload
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
-  // Add a safety check function for mediaDevices
-  const hasMediaDevices = () => {
-    try {
-      return !!(
-        typeof navigator !== "undefined" &&
-        navigator.mediaDevices &&
-        typeof navigator.mediaDevices.getUserMedia === "function"
-      );
-    } catch (err) {
-      console.warn("Error checking for mediaDevices availability:", err);
-      return false;
+    // Cleanup function
+    return () => {
+      setIsRecording(false);
+      stopRecognition();
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
+  // Control recording state
+  useEffect(() => {
+    if (isRecording) {
+      startRecognition();
+    } else {
+      // Explicitly stop recording when isRecording is false
+      stopRecognition();
     }
-  };
+  }, [isRecording, isHindi]);
 
-  // Clean up speech recognition and audio stream
-  const cleanupSpeechRecognition = () => {
+  // Add a clear function to properly stop recognition
+  const stopRecognition = () => {
+    // First, set recording state to false to prevent any restart loops
+    setIsRecording(false);
+
+    // Stop the recognition instance
     if (recognitionRef.current) {
       try {
-        // First remove all event handlers
-        recognitionRef.current.onresult = null as any;
-        recognitionRef.current.onend = null as any;
-        recognitionRef.current.onerror = null as any;
-        recognitionRef.current.onstart = null as any;
+        // Remove all event listeners to prevent any callbacks
+        if (recognitionRef.current.onresult)
+          recognitionRef.current.onresult = null;
+        if (recognitionRef.current.onend) recognitionRef.current.onend = null;
+        if (recognitionRef.current.onerror)
+          recognitionRef.current.onerror = null;
 
-        // Then stop recognition
-        recognitionRef.current.stop();
-      } catch (error) {
-        // Ignore errors during cleanup
-        console.log("Error during cleanup:", error);
+        // Abort is more aggressive than stop
+        recognitionRef.current.abort();
+      } catch (err) {
+        console.error("Error stopping recognition:", err);
       } finally {
         recognitionRef.current = null;
       }
     }
 
-    // Clear any restart timeouts
-    if (restartTimeoutRef.current) {
-      clearTimeout(restartTimeoutRef.current);
-      restartTimeoutRef.current = null;
-    }
-
-    // Release audio context if it exists
-    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-      try {
-        audioContextRef.current.close();
-      } catch (err) {
-        console.log("Error closing AudioContext:", err);
-      }
-      audioContextRef.current = null;
-    }
-
-    // Release media stream if it exists
-    if (mediaStreamRef.current) {
-      try {
-        mediaStreamRef.current.getTracks().forEach((track) => {
-          track.stop();
-        });
-        mediaStreamRef.current = null;
-        console.log("Media stream tracks stopped");
-      } catch (err) {
-        console.log("Error stopping media stream tracks:", err);
-      }
-    }
-  };
-
-  // Add a function to detect mobile browsers
-  const isMobileBrowser = () => {
-    const userAgent =
-      navigator.userAgent || navigator.vendor || (window as any).opera;
-    return /android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      userAgent
-    );
-  };
-
-  // Add better detection for Chrome on Android
-  const isChromeOnAndroid = () => {
-    const userAgent =
-      navigator.userAgent || navigator.vendor || (window as any).opera;
-    return /android/i.test(userAgent) && /chrome/i.test(userAgent);
-  };
-
-  // Initialize speech recognition
-  const initializeSpeechRecognition = (language: string) => {
-    // Clean up any existing instance first
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (err) {
-        console.log("Error stopping existing recognition:", err);
-      }
-      recognitionRef.current = null;
-    }
-
-    if (!isComponentMounted.current) return null;
-
-    // Check if browser supports Speech Recognition API
-    const hasSpeechRecognition = "SpeechRecognition" in window;
-    const hasWebkitSpeechRecognition = "webkitSpeechRecognition" in window;
-
-    if (!hasSpeechRecognition && !hasWebkitSpeechRecognition) {
-      toast.error("Speech Recognition Not Supported", {
-        description:
-          "Your browser doesn't support speech recognition. Please try Chrome or Edge.",
-      });
-      return null;
-    }
-
-    try {
-      // Use the appropriate constructor based on browser support
-      let recognition;
-
-      if (hasSpeechRecognition) {
-        recognition = new (window as any).SpeechRecognition();
-      } else if (hasWebkitSpeechRecognition) {
-        recognition = new (window as any).webkitSpeechRecognition();
-      } else {
-        throw new Error("No speech recognition support available");
-      }
-
-      // Configure recognition based on device type
-      if (isMobileBrowser()) {
-        // On mobile, we need to be careful with continuous flag
-        recognition.continuous = false; // Will restart manually to simulate continuous mode
-        recognition.interimResults = false; // Only get final results for stability on mobile
-      } else {
-        // On desktop, we can use continuous mode directly
-        recognition.continuous = true;
-        recognition.interimResults = true;
-      }
-
-      recognition.lang = language;
-      recognition.maxAlternatives = 1;
-
-      // Configure result handling
-      recognition.onresult = (event: any) => {
-        if (!isComponentMounted.current) return;
-
-        let interimTranscript = "";
-        let hasFinalResult = false;
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscriptRef.current += event.results[i][0].transcript + " ";
-            hasFinalResult = true;
-            hasTranscriptionCompleted.current = true;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-
-        // Ensure transcript doesn't exceed reasonable limits
-        if (finalTranscriptRef.current.length > 10000) {
-          finalTranscriptRef.current = finalTranscriptRef.current.substring(
-            finalTranscriptRef.current.length - 10000
-          );
-        }
-
-        setTranscript(finalTranscriptRef.current + interimTranscript);
-      };
-
-      // Configure recognition end handling
-      recognition.onend = () => {
-        console.log("Speech recognition ended");
-        if (!isComponentMounted.current) return;
-
-        // If we're still in recording mode, restart recognition
-        if (isRecording) {
-          // Schedule a restart with a small delay to prevent rapid restarts
-          restartTimeoutRef.current = setTimeout(() => {
-            if (isRecording && isComponentMounted.current) {
-              console.log("Restarting recognition after end event");
-              const newRecognition = initializeSpeechRecognition(
-                isHindi ? "hi-IN" : "en-US"
-              );
-              if (newRecognition) {
-                try {
-                  newRecognition.start();
-                } catch (err) {
-                  console.log("Error restarting recognition:", err);
-                }
-              }
-            }
-          }, 300);
-        }
-      };
-
-      // Configure recognition start handling
-      recognition.onstart = () => {
-        console.log("Speech recognition started");
-        if (isComponentMounted.current) {
-          setIsRecording(true);
-          hasTranscriptionCompleted.current = false;
-        }
-      };
-
-      // Configure error handling
-      recognition.onerror = (event: { error: string }) => {
-        console.error("Speech recognition error:", event.error);
-        if (!isComponentMounted.current) return;
-
-        // Handle specific errors
-        if (
-          event.error === "not-allowed" ||
-          event.error === "service-not-allowed"
-        ) {
-          toast.error("Microphone Access Denied", {
-            description:
-              "Please allow microphone access to use voice recording.",
+    // Force release the microphone by getting and immediately stopping all audio tracks
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          const tracks = stream.getTracks();
+          tracks.forEach((track) => {
+            track.stop();
           });
-          setIsRecording(false);
-        } else if (event.error === "network") {
-          toast.error("Network Error", {
-            description: "Check your internet connection and try again.",
-          });
-        } else if (event.error === "no-speech") {
-          // No speech detected - silently restart
-          if (isRecording) {
-            restartTimeoutRef.current = setTimeout(() => {
-              if (isRecording && isComponentMounted.current) {
-                console.log("Restarting after no-speech error");
-                const newRecognition = initializeSpeechRecognition(
-                  isHindi ? "hi-IN" : "en-US"
-                );
-                if (newRecognition) {
-                  try {
-                    newRecognition.start();
-                  } catch (err) {
-                    console.log("Error restarting after no-speech:", err);
-                  }
-                }
-              }
-            }, 300);
-          }
-        } else {
-          // For other errors, try to restart if still recording
-          if (isRecording) {
-            restartTimeoutRef.current = setTimeout(() => {
-              if (isRecording && isComponentMounted.current) {
-                console.log("Restarting after general error:", event.error);
-                const newRecognition = initializeSpeechRecognition(
-                  isHindi ? "hi-IN" : "en-US"
-                );
-                if (newRecognition) {
-                  try {
-                    newRecognition.start();
-                  } catch (err) {
-                    console.log("Error restarting after general error:", err);
-                  }
-                }
-              }
-            }, 500);
-          }
-        }
-      };
-
-      recognitionRef.current = recognition;
-      return recognition;
-    } catch (error) {
-      console.error("Error initializing speech recognition:", error);
-      toast.error("Failed to initialize speech recognition", {
-        description: "Please try again or check browser permissions.",
-      });
-      return null;
+          console.log("Successfully stopped all audio tracks");
+        })
+        .catch((err) => {
+          console.error("Could not get audio to stop tracks:", err);
+        });
     }
   };
 
-  // Effect for component mount/unmount
-  useEffect(() => {
-    isComponentMounted.current = true;
-
-    return () => {
-      isComponentMounted.current = false;
-      cleanupSpeechRecognition();
-    };
-  }, []);
-
-  // Effect for language changes
-  useEffect(() => {
-    if (isRecording) {
-      // If we're already recording, restart with new language
-      stopRecording();
-      // Small delay before starting with new language
-      setTimeout(() => {
-        if (isComponentMounted.current) {
-          startRecording();
-        }
-      }, 500);
-    }
-  }, [isHindi]);
-
-  // Add a separate effect for component mount to handle browser detection
-  useEffect(() => {
-    // Check browser compatibility at load time
-    const hasSpeechRecognition = "SpeechRecognition" in window;
-    const hasWebkitSpeechRecognition = "webkitSpeechRecognition" in window;
-
-    if (!hasSpeechRecognition && !hasWebkitSpeechRecognition) {
-      console.warn("This browser doesn't support speech recognition");
-    }
-  }, []);
-
-  // Setup audio context and stream with a persistent connection
-  const setupAudioStream = async () => {
-    if (!hasMediaDevices()) {
-      console.log("MediaDevices API not available");
-      toast.error("Microphone access not available", {
-        description: "Your browser doesn't support microphone access.",
-      });
-      return false;
-    }
-
-    try {
-      // Release any existing stream first
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-        mediaStreamRef.current = null;
-      }
-
-      if (
-        audioContextRef.current &&
-        audioContextRef.current.state !== "closed"
-      ) {
-        await audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-
-      // Get user media stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
-      });
-
-      mediaStreamRef.current = stream;
-      console.log("Media stream acquired successfully");
-
-      // Create and connect audio context
-      const AudioContext =
-        window.AudioContext || (window as any).webkitAudioContext;
-      if (AudioContext) {
-        audioContextRef.current = new AudioContext();
-        const source = audioContextRef.current.createMediaStreamSource(stream);
-
-        // On mobile, we need to create a minimal audio processing pipeline
-        // to keep the audio context active
-        if (isMobileBrowser()) {
-          // Create a silent node to keep the audio context alive without output
-          const silentNode = audioContextRef.current.createGain();
-          silentNode.gain.value = 0; // Completely silent
-          source.connect(silentNode);
-          silentNode.connect(audioContextRef.current.destination);
-          console.log("Silent audio pipeline created for mobile");
-        } else {
-          // For desktop, we can just keep the source active without output
-          // to avoid echo
-          const gainNode = audioContextRef.current.createGain();
-          gainNode.gain.value = 0;
-          source.connect(gainNode);
-          // Don't connect to destination to avoid echo
-        }
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Error accessing microphone:", error);
-
-      if (error instanceof DOMException && error.name === "NotAllowedError") {
-        toast.error("Microphone Access Denied", {
-          description: "Please allow microphone access to use voice recording.",
-        });
-      } else {
-        toast.error("Microphone Error", {
-          description:
-            "Could not access your microphone. Please check your settings.",
-        });
-      }
-
-      return false;
-    }
-  };
-
-  // Start recording implementation with getUserMedia
-  const startRecording = async () => {
-    console.log("Starting recording with persistent audio stream...");
-    if (isRecording) return;
-
-    // First, set up the persistent audio stream
-    const streamReady = await setupAudioStream();
-    if (!streamReady) {
-      console.log("Failed to set up audio stream");
-      return;
-    }
-
-    // Once we have the stream, initialize and start speech recognition
-    const recognition = initializeSpeechRecognition(
-      isHindi ? "hi-IN" : "en-US"
-    );
-    if (recognition) {
-      try {
-        recognition.start();
-        console.log("Speech recognition started");
-      } catch (error) {
-        console.error("Error starting speech recognition:", error);
-        toast.error("Failed to start recording", {
-          description:
-            "Please check your microphone permissions and try again.",
-        });
-        cleanupSpeechRecognition();
-      }
-    }
-  };
-
-  // Stop recording implementation
-  const stopRecording = () => {
-    console.log("Stopping recording...");
+  const startRecognition = () => {
+    // Don't start if we're not in recording state
     if (!isRecording) return;
 
-    // Clean up resources
-    cleanupSpeechRecognition();
-    setIsRecording(false);
+    // Clean up any existing recognition instance
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+        recognitionRef.current = null;
+      } catch (err) {
+        console.log("Error cleaning up previous recognition:", err);
+      }
+    }
+
+    try {
+      // Check if browser supports SpeechRecognition
+      if (
+        !("webkitSpeechRecognition" in window) &&
+        !("SpeechRecognition" in window)
+      ) {
+        console.error("Speech recognition not supported in this browser");
+        setIsRecording(false); // Prevent trying to restart
+        return;
+      }
+
+      // Create speech recognition instance
+      // @ts-ignore - TypeScript doesn't know about these browser-specific APIs
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+
+      // Configure recognition
+      recognition.continuous = false; // Get one phrase at a time
+      recognition.interimResults = true;
+      recognition.lang = isHindi ? "hi-IN" : "en-US";
+
+      // Handle results
+      recognition.onresult = (event: any) => {
+        // Don't process if we've stopped recording
+        if (!isRecording) return;
+
+        const resultIndex = event.resultIndex;
+        const result = event.results[resultIndex];
+
+        if (result.isFinal) {
+          const transcript = result[0].transcript.trim();
+          if (transcript) {
+            // Flash the word detected indicator
+            setWordDetected(true);
+            setTimeout(() => setWordDetected(false), 500);
+
+            setTranscript((prev) => {
+              // Add space if the previous transcript doesn't end with space
+              const spacer = prev && !prev.endsWith(" ") ? " " : "";
+              return prev + spacer + transcript;
+            });
+          }
+        }
+      };
+
+      // Reset recognition after each result to prevent cumulative results
+      recognition.onend = () => {
+        // Don't restart if we're not supposed to be recording anymore
+        if (!isRecording) {
+          if (recognitionRef.current) {
+            recognitionRef.current = null;
+          }
+          return;
+        }
+
+        // Short delay before restarting
+        setTimeout(() => {
+          // Check again before restarting (in case recording was stopped during timeout)
+          if (!isRecording) return;
+
+          try {
+            // Create new instance to prevent result accumulation
+            const newRecognition = new SpeechRecognition();
+            newRecognition.continuous = false; // Set to false to get one phrase at a time
+            newRecognition.interimResults = true;
+            newRecognition.lang = isHindi ? "hi-IN" : "en-US";
+
+            // Copy event handlers
+            newRecognition.onresult = recognition.onresult;
+            newRecognition.onend = recognition.onend;
+            newRecognition.onerror = recognition.onerror;
+
+            newRecognition.start();
+            recognitionRef.current = newRecognition;
+          } catch (error) {
+            console.error("Error restarting recognition:", error);
+            // Only try to restart if we're still supposed to be recording
+            if (isRecording) {
+              startRecognition(); // Try the full initialization again
+            }
+          }
+        }, 100);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Recognition error:", event.error);
+
+        // Handle specific errors
+        if (event.error === "no-speech" || event.error === "aborted") {
+          console.log("Handling normal recognition end case:", event.error);
+          // These are expected errors, no need to restart if we've intentionally stopped
+          if (!isRecording) return;
+        }
+
+        // Restart on error too, but only if we're still supposed to be recording
+        if (isRecording) {
+          setTimeout(() => {
+            startRecognition();
+          }, 500);
+        }
+      };
+
+      // Start recognition
+      recognition.start();
+      recognitionRef.current = recognition;
+    } catch (error) {
+      console.error("Error starting speech recognition:", error);
+      // Reset recording state if we couldn't start
+      setIsRecording(false);
+    }
   };
 
   const toggleRecording = () => {
     if (isRecording) {
-      stopRecording();
+      setIsRecording(false);
+      // Explicitly call stopRecognition to ensure it stops
+      stopRecognition();
     } else {
-      startRecording();
+      setIsRecording(true);
     }
-  };
-
-  const toggleLanguage = () => {
-    setIsHindi(!isHindi);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -584,91 +328,96 @@ export function AddPatientModal({
     setPhone("");
     setEmail("");
     setIsRecording(false);
-    cleanupSpeechRecognition();
-  };
-
-  const clearTranscript = () => {
     setTranscript("");
-    finalTranscriptRef.current = "";
+    setWordDetected(false);
+
+    // Stop speech recognition
+    stopRecognition();
   };
-
-  // Loading overlay component
-  const LoadingOverlay = () => (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] backdrop-blur-md">
-      <div className="bg-white/95 rounded-xl p-10 shadow-2xl flex flex-col items-center max-w-md w-full mx-4 border border-gray-100 animate-fadeIn">
-        <div className="mb-8 relative">
-          <div className="absolute inset-0 -m-2 w-32 h-32">
-            <div className="w-full h-full rounded-full animate-ping opacity-20 bg-black"></div>
-          </div>
-          <div className="relative flex items-center justify-center w-28 h-28 rounded-full bg-gray-50 border border-gray-100 shadow-sm">
-            <Loader2
-              className="h-20 w-20 animate-spin text-black"
-              strokeWidth={1.5}
-            />
-          </div>
-        </div>
-        <h3 className="text-2xl font-semibold mb-2 text-gray-900">
-          Processing Patient
-        </h3>
-        <p className="text-gray-500 text-center mb-6 max-w-xs">
-          Please wait while we securely save your patient information
-        </p>
-        <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-4">
-          <div className="progress-bar"></div>
-        </div>
-        <p className="text-xs text-gray-400 text-center">
-          This may take a few moments
-        </p>
-
-        <style jsx>{`
-          .progress-bar {
-            height: 100%;
-            width: 100%;
-            background: linear-gradient(
-              to right,
-              transparent,
-              black,
-              transparent
-            );
-            background-size: 200% 100%;
-            animation: progressSlide 1.5s infinite ease-in-out;
-          }
-
-          @keyframes progressSlide {
-            0% {
-              background-position: -100% 0;
-            }
-            100% {
-              background-position: 200% 0;
-            }
-          }
-
-          @keyframes fadeIn {
-            from {
-              opacity: 0;
-              transform: scale(0.95);
-            }
-            to {
-              opacity: 1;
-              transform: scale(1);
-            }
-          }
-
-          .animate-fadeIn {
-            animation: fadeIn 0.3s ease-out forwards;
-          }
-        `}</style>
-      </div>
-    </div>
-  );
 
   return (
     <>
-      {isLoading && <LoadingOverlay />}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] backdrop-blur-md">
+          <div className="bg-white/95 rounded-xl p-10 shadow-2xl flex flex-col items-center max-w-md w-full mx-4 border border-gray-100 animate-fadeIn">
+            <div className="mb-8 relative">
+              <div className="absolute inset-0 -m-2 w-32 h-32">
+                <div className="w-full h-full rounded-full animate-ping opacity-20 bg-black"></div>
+              </div>
+              <div className="relative flex items-center justify-center w-28 h-28 rounded-full bg-gray-50 border border-gray-100 shadow-sm">
+                <Loader2
+                  className="h-20 w-20 animate-spin text-black"
+                  strokeWidth={1.5}
+                />
+              </div>
+            </div>
+            <h3 className="text-2xl font-semibold mb-2 text-gray-900">
+              Processing Patient
+            </h3>
+            <p className="text-gray-500 text-center mb-6 max-w-xs">
+              Please wait while we securely save your patient information
+            </p>
+            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-4">
+              <div className="progress-bar"></div>
+            </div>
+            <p className="text-xs text-gray-400 text-center">
+              This may take a few moments
+            </p>
+
+            <style jsx>{`
+              .progress-bar {
+                height: 100%;
+                width: 100%;
+                background: linear-gradient(
+                  to right,
+                  transparent,
+                  black,
+                  transparent
+                );
+                background-size: 200% 100%;
+                animation: progressSlide 1.5s infinite ease-in-out;
+              }
+
+              @keyframes progressSlide {
+                0% {
+                  background-position: -100% 0;
+                }
+                100% {
+                  background-position: 200% 0;
+                }
+              }
+
+              @keyframes fadeIn {
+                from {
+                  opacity: 0;
+                  transform: scale(0.95);
+                }
+                to {
+                  opacity: 1;
+                  transform: scale(1);
+                }
+              }
+
+              .animate-fadeIn {
+                animation: fadeIn 0.3s ease-out forwards;
+              }
+            `}</style>
+          </div>
+        </div>
+      )}
       <Dialog
         open={isOpen}
         onOpenChange={(open) => {
           if (!open && !isLoading) {
+            // Make sure we're not recording before closing
+            if (isRecording) {
+              setIsRecording(false);
+            }
+
+            // Force stop any active recognition
+            stopRecognition();
+
+            // Then cleanup and close
             resetForm();
             onClose();
           } else if (!open && isLoading) {
@@ -681,6 +430,21 @@ export function AddPatientModal({
           className={`w-[850px] max-w-[95vw] p-4 sm:p-5 max-h-[92vh] lg:w-[600px] lg:max-w-[600px] overflow-y-auto ${
             isLoading ? "pointer-events-none" : ""
           }`}
+          onEscapeKeyDown={() => {
+            // Explicitly handle escape key to ensure recording stops
+            setIsRecording(false);
+            stopRecognition();
+          }}
+          onInteractOutside={() => {
+            // Explicitly handle clicking outside to ensure recording stops
+            setIsRecording(false);
+            stopRecognition();
+          }}
+          onCloseAutoFocus={() => {
+            // Ensure recording stops when dialog closes
+            setIsRecording(false);
+            stopRecognition();
+          }}
         >
           <DialogHeader className="mb-2">
             <DialogTitle className="text-xl sm:text-2xl font-semibold">
@@ -808,13 +572,9 @@ export function AddPatientModal({
                     variant="secondary"
                     size="icon"
                     onClick={toggleRecording}
-                    className={`h-11 w-12 p-0 flex items-center justify-center bg-gray-100 text-black hover:bg-gray-200 cursor-pointer ${
+                    className={`h-11 w-11 p-0 flex items-center justify-center bg-gray-100 text-black hover:bg-gray-200 cursor-pointer ${
                       isRecording
                         ? "animate-pulse bg-red-600 hover:bg-red-700 text-white"
-                        : ""
-                    } ${
-                      isMobileBrowser()
-                        ? "active:bg-gray-300 touch-manipulation"
                         : ""
                     }`}
                     aria-label={
@@ -822,13 +582,31 @@ export function AddPatientModal({
                     }
                     disabled={isLoading}
                   >
-                    {isRecording ? <MicOff size={28} /> : <Mic size={28} />}
+                    {isRecording ? <MicOff size={22} /> : <Mic size={22} />}
                   </Button>
                   <div className="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-100">
                     <Switch
                       id="language-mode"
                       checked={isHindi}
-                      onCheckedChange={toggleLanguage}
+                      onCheckedChange={() => {
+                        const wasRecording = isRecording;
+
+                        // Stop current recognition if running
+                        if (isRecording) {
+                          setIsRecording(false);
+                          stopRecognition();
+                        }
+
+                        // Toggle language
+                        setIsHindi(!isHindi);
+
+                        // Restart recording if it was active
+                        if (wasRecording) {
+                          setTimeout(() => {
+                            setIsRecording(true);
+                          }, 200);
+                        }
+                      }}
                       className="data-[state=checked]:bg-black cursor-pointer"
                       disabled={isLoading}
                     />
@@ -840,79 +618,6 @@ export function AddPatientModal({
                       {isHindi ? "Hindi" : "English"}
                     </Label>
                   </div>
-                  {/* Mobile hint message */}
-                  {isMobileBrowser() && (
-                    <div className="w-full mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-md border border-amber-100">
-                      {isChromeOnAndroid() ? (
-                        <>
-                          <strong>Chrome on Android tips:</strong>
-                          <ul className="list-disc pl-4 mt-1 space-y-1">
-                            <li>
-                              <strong>
-                                Just tap once and speak continuously
-                              </strong>{" "}
-                              - recording will automatically continue after each
-                              pause
-                            </li>
-                            <li>
-                              You'll hear beeps during recording as it processes
-                              chunks of speech - keep speaking normally
-                            </li>
-                            <li>
-                              The recording will automatically restart after
-                              each chunk is processed
-                            </li>
-                            <li>
-                              Tap the mic button again only when you're
-                              completely finished recording
-                            </li>
-                          </ul>
-                        </>
-                      ) : (
-                        <>
-                          <strong>Mobile recording tip:</strong> Tap mic once
-                          and speak continuously. The recording will
-                          automatically restart after each pause. You'll hear
-                          beeps as it processes, which is normal. Just keep
-                          speaking until finished.
-                        </>
-                      )}
-                    </div>
-                  )}
-                  {/* DevTool for debugging voice recognition */}
-                  {process.env.NODE_ENV === "development" && (
-                    <div className="ml-auto" title="Debug Voice Recognition">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          console.log(
-                            "Current recognition ref:",
-                            recognitionRef.current
-                          );
-                          console.log("Is recording:", isRecording);
-                          console.log("Transcript:", transcript);
-                          console.log("Is mobile:", isMobileBrowser());
-
-                          if (!isRecording) {
-                            // Force recreation of recognition instance
-                            cleanupSpeechRecognition();
-                            setTimeout(() => startRecording(), 100);
-                          } else {
-                            stopRecording();
-                            setTimeout(() => {
-                              setIsRecording(false);
-                              finalTranscriptRef.current = "";
-                            }, 100);
-                          }
-                        }}
-                        className="text-xs px-2 py-1 h-7"
-                      >
-                        Reset Audio
-                      </Button>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -924,21 +629,44 @@ export function AddPatientModal({
                   <Textarea
                     value={transcript}
                     onChange={(e) => setTranscript(e.target.value)}
-                    className="min-h-[100px] text-sm p-3 pr-10"
+                    className={`min-h-[100px] text-sm p-3 pr-10 [&>*]:caret-black [caret-color:black] ${
+                      isRecording
+                        ? "border-red-400 focus-visible:ring-red-300"
+                        : ""
+                    }`}
                     placeholder={
                       isRecording
-                        ? "Speak now..."
-                        : "Transcription will appear here"
+                        ? "Recording in progress (manual input enabled)..."
+                        : "Enter notes manually or use the recording button"
                     }
                     disabled={isLoading}
+                    style={{ caretColor: "black" }}
                   />
+                  {isRecording && (
+                    <div
+                      className={`absolute top-2 right-2 flex items-center space-x-1 rounded-full px-2 py-0.5 text-xs ${
+                        wordDetected
+                          ? "bg-green-100 text-green-700 animate-bounce"
+                          : "bg-red-100 text-red-700 animate-pulse"
+                      }`}
+                    >
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          wordDetected ? "bg-green-600" : "bg-red-600"
+                        }`}
+                      ></div>
+                      <span>
+                        {wordDetected ? "Word Detected" : "Recording"}
+                      </span>
+                    </div>
+                  )}
                   {transcript && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      onClick={clearTranscript}
-                      className="absolute right-2 top-2 h-7 w-7 p-0"
+                      onClick={() => setTranscript("")}
+                      className="absolute right-2 bottom-2 h-7 w-7 p-0"
                       disabled={isLoading}
                       aria-label="Clear transcription"
                     >
@@ -952,7 +680,13 @@ export function AddPatientModal({
               <Button
                 type="button"
                 variant="outline"
-                onClick={onClose}
+                onClick={() => {
+                  // Explicitly stop recording and reset everything
+                  setIsRecording(false);
+                  stopRecognition();
+                  resetForm();
+                  onClose();
+                }}
                 disabled={isLoading}
                 className="bg-white text-black border-gray-200 hover:bg-gray-50 px-4 py-2 text-sm h-9 cursor-pointer w-full sm:w-auto disabled:opacity-50"
               >
