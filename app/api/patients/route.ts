@@ -25,7 +25,7 @@ const prompt_info = `
   - If any information is not present, return [] for that field.
   - For condition you have to self evaluate the whole text and give a response in string, that what condition is person having as a problem(in few words(3-4)).
   - For status you have to self evaluate the whole text and give a response in string from these values namely(Active, Inactive, Discharged).
-  - For symptoms you have to self evaluate the whole text and give a response in string for the symptoms and observation you think occur in patient from the given report from user.
+  - For symptoms you have to self evaluate the whole text and give a response in string for the symptoms and observation you think occur in patient from the given report from user(too necesssary to provide)
   - For extraPrescriptions scan for any left out additional prescriptions from the given report from user in a string(do not add something extra).
 
 1. **Enhance the Data (except for condition, nameofmedicine, frequency, dosage, emptyStomach and status fields)**:
