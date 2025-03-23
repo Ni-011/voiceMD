@@ -90,6 +90,9 @@ export function AddPatientModal({
   const finalTranscriptRef = useRef("");
   const isComponentMounted = useRef(true);
 
+  // Add a reference to track if transcription is complete
+  const hasTranscriptionCompleted = useRef(false);
+
   // Add a safety check function for mediaDevices
   const hasMediaDevices = () => {
     try {
@@ -214,9 +217,13 @@ export function AddPatientModal({
         if (!isComponentMounted.current) return;
 
         let interimTranscript = "";
+        let hasFinalResult = false;
+
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
             finalTranscriptRef.current += event.results[i][0].transcript + " ";
+            hasFinalResult = true;
+            hasTranscriptionCompleted.current = true;
           } else {
             interimTranscript += event.results[i][0].transcript;
           }
@@ -230,30 +237,72 @@ export function AddPatientModal({
         }
 
         setTranscript(finalTranscriptRef.current + interimTranscript);
+
+        // If we received a final result and we're not on Chrome Android
+        // (Chrome Android has its own handling in onend)
+        if (hasFinalResult && !isChromeOnAndroid() && isRecording) {
+          // Signal to restart in onend
+          console.log("Final result received, will restart recognition");
+
+          // For non-continuous mode or mobile browsers other than Chrome,
+          // force a restart after a final result
+          if (
+            !recognition.continuous ||
+            (isMobileBrowser() && !isChromeOnAndroid())
+          ) {
+            try {
+              recognition.stop();
+            } catch (error) {
+              console.log("Error stopping for restart after result:", error);
+            }
+          }
+        }
       };
 
       recognition.onstart = () => {
         console.log("Speech recognition started");
         if (isComponentMounted.current) {
           setIsRecording(true);
+          hasTranscriptionCompleted.current = false;
 
           // For Chrome on Android, set up a recurring restart to simulate continuous mode
           if (isChromeOnAndroid() && autoRestartRecording) {
             // Clear any existing interval
             if (mobileRecordingInterval.current) {
               clearInterval(mobileRecordingInterval.current);
+              mobileRecordingInterval.current = null;
             }
 
             // Set up automatic restart every 5 seconds
             mobileRecordingInterval.current = setInterval(() => {
-              if (isRecording && recognitionRef.current) {
+              if (
+                isRecording &&
+                recognitionRef.current &&
+                isComponentMounted.current
+              ) {
                 console.log("Auto-restarting Chrome Android recognition");
                 try {
                   // Stop the current recognition session
                   recognitionRef.current.stop();
                 } catch (error) {
                   console.log("Error stopping for auto-restart:", error);
+                  // If there's an error stopping, try to create a new instance directly
+                  const newRecognition = initializeSpeechRecognition(
+                    isHindi ? "hi-IN" : "en-US"
+                  );
+                  if (newRecognition) {
+                    try {
+                      newRecognition.start();
+                      console.log("Created new instance after stop error");
+                    } catch (innerError) {
+                      console.log("Error starting new instance:", innerError);
+                    }
+                  }
                 }
+              } else if (!isRecording && mobileRecordingInterval.current) {
+                // Safety check to clear interval if recording stopped
+                clearInterval(mobileRecordingInterval.current);
+                mobileRecordingInterval.current = null;
               }
             }, 5000); // 5 seconds is usually enough to get some speech without hitting timeout
           }
@@ -289,28 +338,49 @@ export function AddPatientModal({
             clearChromeAndroidTimer();
           }
         }
-        // Don't auto-restart on other mobile browsers as it can cause conflicts
-        else if (isRecording && !isMobileBrowser()) {
+        // For all other browsers: if we're still recording, always restart
+        // This ensures continuous operation even after final results
+        else if (isRecording) {
           try {
-            // Restart recognition more quickly
+            // Restart recognition with a small delay
             setTimeout(() => {
-              if (
-                recognitionRef.current &&
-                isRecording &&
-                isComponentMounted.current
-              ) {
-                recognitionRef.current.start();
+              if (isRecording && isComponentMounted.current) {
+                // For non-Android mobile browsers, check if we completed a transcription
+                if (isMobileBrowser() && !isChromeOnAndroid()) {
+                  // Always restart on mobile to maintain continuous recording
+                  // This is critical for a seamless experience
+                  console.log("Creating new recognition instance for mobile");
+                  const newRecognition = initializeSpeechRecognition(
+                    isHindi ? "hi-IN" : "en-US"
+                  );
+                  if (newRecognition) {
+                    // Reset the transcription completed flag for next cycle
+                    hasTranscriptionCompleted.current = false;
+                    newRecognition.start();
+                    return;
+                  }
+                } else if (recognitionRef.current) {
+                  // For desktop browsers with continuous: true
+                  recognitionRef.current.start();
+                } else {
+                  // If recognitionRef is null, create a new instance
+                  const newRecognition = initializeSpeechRecognition(
+                    isHindi ? "hi-IN" : "en-US"
+                  );
+                  if (newRecognition) {
+                    newRecognition.start();
+                  }
+                }
               }
-            }, 100);
+            }, 300);
           } catch (error) {
             console.error("Failed to restart recording:", error);
             if (isComponentMounted.current) {
               setIsRecording(false);
             }
           }
-        } else if (isRecording && isMobileBrowser() && !isChromeOnAndroid()) {
-          // For other mobile browsers, explicitly set recording state to false when recognition ends
-          setIsRecording(false);
+        } else {
+          // If we're not recording anymore, clean up
           clearChromeAndroidTimer();
         }
       };
@@ -344,14 +414,35 @@ export function AddPatientModal({
           // No speech detected - don't show error
           console.log("No speech detected");
 
-          // For Chrome on Android, we need to restart manually after no-speech
-          if (isChromeOnAndroid() && isRecording && autoRestartRecording) {
+          // For all browsers, restart after no-speech if still recording
+          if (isRecording) {
             setTimeout(() => {
               if (isRecording && isComponentMounted.current) {
                 // Try to restart recognition
-                startRecording();
+                console.log("Restarting after no-speech");
+                // For mobile browsers, create a new instance
+                if (isMobileBrowser()) {
+                  const newRecognition = initializeSpeechRecognition(
+                    isHindi ? "hi-IN" : "en-US"
+                  );
+                  if (newRecognition) {
+                    newRecognition.start();
+                  }
+                } else if (recognitionRef.current) {
+                  try {
+                    recognitionRef.current.start();
+                  } catch (error) {
+                    console.log("Error restarting after no-speech:", error);
+                    const newRecognition = initializeSpeechRecognition(
+                      isHindi ? "hi-IN" : "en-US"
+                    );
+                    if (newRecognition) {
+                      newRecognition.start();
+                    }
+                  }
+                }
               }
-            }, 300);
+            }, 500);
           }
         } else {
           // Special handling for Chrome recording conflict error
@@ -389,8 +480,35 @@ export function AddPatientModal({
             clearChromeAndroidTimer();
           } else {
             console.error("Speech recognition error:", event.error);
-            setIsRecording(false);
-            clearChromeAndroidTimer();
+            // For desktop browsers, try to restart after other errors
+            if (isRecording) {
+              setTimeout(() => {
+                if (isRecording && isComponentMounted.current) {
+                  try {
+                    if (recognitionRef.current) {
+                      recognitionRef.current.start();
+                    } else {
+                      const newRecognition = initializeSpeechRecognition(
+                        isHindi ? "hi-IN" : "en-US"
+                      );
+                      if (newRecognition) {
+                        newRecognition.start();
+                      }
+                    }
+                    console.log("Restarted after error");
+                  } catch (restartError) {
+                    console.error(
+                      "Failed to restart after error:",
+                      restartError
+                    );
+                    setIsRecording(false);
+                  }
+                }
+              }, 500);
+            } else {
+              setIsRecording(false);
+              clearChromeAndroidTimer();
+            }
           }
         }
       };
@@ -409,6 +527,7 @@ export function AddPatientModal({
   // Helper to clear Chrome Android timer
   const clearChromeAndroidTimer = () => {
     if (mobileRecordingInterval.current) {
+      console.log("Clearing Chrome Android timer");
       clearInterval(mobileRecordingInterval.current);
       mobileRecordingInterval.current = null;
     }
@@ -1036,26 +1155,28 @@ export function AddPatientModal({
                           <strong>Chrome on Android tips:</strong>
                           <ul className="list-disc pl-4 mt-1 space-y-1">
                             <li>
+                              After tapping the mic button, speak continuously -
+                              recording will now automatically continue
+                            </li>
+                            <li>
+                              You may hear beeps during recording - this is
+                              normal and your speech will still be captured
+                            </li>
+                            <li>
+                              When finished, tap the mic button again to stop
+                              recording completely
+                            </li>
+                            <li>
                               Close other tabs that might be using the
-                              microphone
-                            </li>
-                            <li>
-                              Recording on mobile may pause briefly and then
-                              continue automatically
-                            </li>
-                            <li>
-                              If recording stops completely, tap the mic button
-                              again
-                            </li>
-                            <li>
-                              For best results, use in a quiet environment
+                              microphone for best results
                             </li>
                           </ul>
                         </>
                       ) : (
                         <>
-                          <strong>Mobile tip:</strong> For best results, close
-                          other apps using your microphone before recording.
+                          <strong>Mobile tip:</strong> Tap mic to start, speak
+                          continuously, and tap again when done. The recording
+                          will automatically restart after each transcription.
                         </>
                       )}
                     </div>
