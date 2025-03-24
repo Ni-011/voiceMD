@@ -4,7 +4,7 @@ export async function GET() {
   const robotsTxt = `User-agent: *
 Allow: /
 
-Sitemap: https://yourdomain.com/sitemap.xml`;
+Sitemap: https://voiceMD.tech/sitemap.xml`;
 
   return new NextResponse(robotsTxt, {
     headers: {

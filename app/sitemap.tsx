@@ -3,25 +3,25 @@ import { MetadataRoute } from "next";
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: "https://yourdomain.com",
+      url: "https://voiceMD.tech",
       lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 1,
     },
     {
-      url: "https://yourdomain.com/sign-in",
+      url: "https://voiceMD.tech/sign-in",
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
-      url: "https://yourdomain.com/sign-up",
+      url: "https://voiceMD.tech/sign-up",
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
-      url: "https://yourdomain.com/dashboard",
+      url: "https://voiceMD.tech/dashboard",
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.9,
