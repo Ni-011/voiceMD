@@ -12,6 +12,17 @@ import {
   Star,
   Mic,
 } from "lucide-react";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "VoiceMD - Document Patient Care With Your Voice",
+  description:
+    "VoiceMD helps doctors focus on what matters most—their patients. Simplify documentation, prescriptions, and patient management with our AI-powered voice platform.",
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
 
 export default function LandingPage() {
   return (

@@ -22,6 +22,19 @@ const nextConfig: NextConfig = {
     // Disable TypeScript errors during builds as well
     ignoreBuildErrors: true,
   },
+  // Explicitly enable app router features
+  experimental: {
+    typedRoutes: true,
+  },
+  // Ensure robots.txt is accessible
+  async rewrites() {
+    return [
+      {
+        source: "/robots.txt",
+        destination: "/api/robots-txt",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
