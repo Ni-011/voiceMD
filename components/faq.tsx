@@ -23,10 +23,10 @@ export function FAQ({ items }: FAQProps) {
       {items.map((faq, i) => (
         <div
           key={i}
-          className="group relative overflow-hidden rounded-xl sm:rounded-2xl bg-white/80 backdrop-blur-sm border border-emerald-100 shadow-sm hover:shadow-md transition-all duration-300"
+          className="group relative rounded-xl sm:rounded-2xl bg-white/80 backdrop-blur-sm border border-emerald-100 shadow-sm hover:shadow-md"
         >
           {/* Decorative gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
 
           <div
             className="flex items-center justify-between p-4 sm:p-6 cursor-pointer relative"
@@ -43,7 +43,7 @@ export function FAQ({ items }: FAQProps) {
             aria-controls={`faq-answer-${i}`}
           >
             <div className="flex items-center gap-2 sm:gap-3 flex-1 pr-4">
-              <div className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-emerald-50 group-hover:bg-emerald-100 transition-colors duration-300 shrink-0">
+              <div className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-emerald-50 group-hover:bg-emerald-100 transition-colors duration-200 shrink-0">
                 <svg
                   className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600"
                   fill="none"
@@ -62,9 +62,9 @@ export function FAQ({ items }: FAQProps) {
                 {faq.question}
               </h3>
             </div>
-            <div className="flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors shrink-0">
+            <div className="flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors duration-200 shrink-0">
               <svg
-                className={`w-3 h-3 sm:w-4 sm:h-4 text-emerald-600 transform transition-transform duration-300 ${
+                className={`w-3 h-3 sm:w-4 sm:h-4 text-emerald-600 transform transition-transform duration-200 ${
                   openIndex === i ? "rotate-180" : ""
                 }`}
                 fill="none"
@@ -80,14 +80,17 @@ export function FAQ({ items }: FAQProps) {
               </svg>
             </div>
           </div>
+
           <div
             id={`faq-answer-${i}`}
-            className={`relative overflow-hidden transition-all duration-300 ${
+            style={{
+              transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
+            className={`overflow-hidden transition-all duration-200 ${
               openIndex === i
-                ? "max-h-[500px] opacity-100"
-                : "max-h-0 opacity-0"
+                ? "max-h-96 opacity-100 translate-y-0"
+                : "max-h-0 opacity-0 -translate-y-2"
             }`}
-            aria-hidden={openIndex !== i}
           >
             <div className="px-4 sm:px-6 pb-4 sm:pb-6">
               <p className="text-sm sm:text-base text-gray-600 leading-relaxed">

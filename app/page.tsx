@@ -378,7 +378,7 @@ export default function LandingPage() {
                   {
                     question: "How accurate is the voice recognition?",
                     answer:
-                      "VoiceMD uses Google&apos;s speech-to-text it is 99% accurate for slow speech, and over 90% for fast speech.",
+                      "VoiceMD uses Google's speech-to-text it is 99% accurate for slow speech, and over 90% for fast speech.",
                   },
                   {
                     question: "Is VoiceMD Secure?",
