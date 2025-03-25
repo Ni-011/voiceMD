@@ -15,7 +15,7 @@ export function ContactForm() {
     setSuccess(false);
 
     // Simulate a delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Get form data using the event target
     const target = e.target as typeof e.target & {
@@ -30,6 +30,26 @@ export function ContactForm() {
       message: target.message.value,
       timestamp: new Date().toISOString(),
     });
+    const form = await fetch("/api/mail", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: target.name.value,
+        email: target.email.value,
+        message: target.message.value,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+    const jsn = await form.json();
+    if (!form.ok) {
+      console.error("Failed to send email:", jsn);
+      setIsSubmitting(false);
+      return;
+    }
+
+    console.log("Form response:", jsn);
 
     setSuccess(true);
     formRef.current?.reset();

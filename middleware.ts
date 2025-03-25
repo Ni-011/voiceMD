@@ -2,7 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 // Define public routes that don't require authentication
-const publicRoutes = ["/", "/sign-in", "/sign-up"];
+const publicRoutes = ["/", "/sign-in", "/sign-up", "/#faq", "/api/mail"];
 
 // Create a matcher for public routes
 const isPublicRoute = createRouteMatcher(publicRoutes);
