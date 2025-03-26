@@ -59,7 +59,7 @@ export const sendEmail = async (
       `,
     };
 
-    const info = await withTimeout(transporter.sendMail(mailOptions), 10000); // 10s timeout
+    const info = await withTimeout(transporter.sendMail(mailOptions), 30000); // 30s timeout
     console.log("Email sent successfully, message ID:", info.messageId);
   } catch (error) {
     console.error("Email sending failed:", error);

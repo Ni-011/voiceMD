@@ -427,7 +427,7 @@ export function AddPatientModal({
         }}
       >
         <DialogContent
-          className={`w-[850px] max-w-[95vw] p-4 sm:p-5 max-h-[92vh] lg:w-[600px] lg:max-w-[600px] overflow-y-auto ${
+          className={`w-[850px] max-w-[95vw] md:w-[700px] lg:w-[850px] p-0 h-[90vh] md:min-h-[750px] md:max-h-[90vh] flex flex-col border-none shadow-2xl rounded-2xl bg-gradient-to-b from-white to-gray-50 ${
             isLoading ? "pointer-events-none" : ""
           }`}
           onEscapeKeyDown={() => {
@@ -446,268 +446,393 @@ export function AddPatientModal({
             stopRecognition();
           }}
         >
-          <DialogHeader className="mb-2">
-            <DialogTitle className="text-xl sm:text-2xl font-semibold">
-              Add New Patient
-            </DialogTitle>
-            <DialogDescription className="text-sm -mt-1">
-              Enter patient details and use voice recording for notes.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <div className="grid gap-4 py-0">
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-3">
-                <Label
-                  htmlFor="name"
-                  className="sm:text-right text-sm font-medium"
-                >
-                  Name
-                </Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="sm:col-span-3 py-2 text-sm"
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-3">
-                <Label
-                  htmlFor="age"
-                  className="sm:text-right text-sm font-medium"
-                >
-                  Age
-                </Label>
-                <Input
-                  id="age"
-                  type="number"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  className="sm:col-span-3 py-2 text-sm"
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-3">
-                <Label className="sm:text-right text-sm font-medium">
-                  Gender
-                </Label>
-                <RadioGroup
-                  value={gender}
-                  onValueChange={setGender}
-                  className="sm:col-span-3 flex flex-wrap space-x-4"
-                  disabled={isLoading}
-                >
-                  <div className="flex items-center space-x-1.5">
-                    <RadioGroupItem
-                      value="Male"
-                      id="male"
-                      className="h-4 w-4 border-gray-300 text-black focus:ring-black cursor-pointer"
-                    />
-                    <Label htmlFor="male" className="text-sm cursor-pointer">
-                      Male
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-1.5">
-                    <RadioGroupItem
-                      value="Female"
-                      id="female"
-                      className="h-4 w-4 border-gray-300 text-black focus:ring-black cursor-pointer"
-                    />
-                    <Label htmlFor="female" className="text-sm cursor-pointer">
-                      Female
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-1.5">
-                    <RadioGroupItem
-                      value="Other"
-                      id="other"
-                      className="h-4 w-4 border-gray-300 text-black focus:ring-black cursor-pointer"
-                    />
-                    <Label htmlFor="other" className="text-sm cursor-pointer">
-                      Other
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-3">
-                <Label
-                  htmlFor="phone"
-                  className="sm:text-right text-sm font-medium"
-                >
-                  Phone
-                </Label>
-                <Input
-                  id="phone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="sm:col-span-3 py-2 text-sm"
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-3">
-                <Label
-                  htmlFor="email"
-                  className="sm:text-right text-sm font-medium"
-                >
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="sm:col-span-3 py-2 text-sm"
-                  disabled={isLoading}
-                />
-              </div>
+          {/* Fixed Header */}
+          <div className="flex-shrink-0 sticky top-0 z-10 p-6 pb-3 border-b border-gray-100 bg-gradient-to-b from-white to-white/95">
+            <DialogHeader className="mb-1">
+              <DialogTitle className="text-2xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600">
+                New Patient
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
+                Enter patient details and use voice for notes
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 items-start sm:items-center gap-2 sm:gap-3 mt-1">
-                <div className="sm:text-right">
-                  <Label className="text-sm font-medium">Voice Notes</Label>
-                </div>
-                <div className="sm:col-span-3 flex flex-wrap items-center gap-3">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    onClick={toggleRecording}
-                    className={`h-11 w-11 p-0 flex items-center justify-center bg-gray-100 text-black hover:bg-gray-200 cursor-pointer ${
-                      isRecording
-                        ? "animate-pulse bg-red-600 hover:bg-red-700 text-white"
-                        : ""
-                    }`}
-                    aria-label={
-                      isRecording ? "Stop recording" : "Start recording"
-                    }
-                    disabled={isLoading}
-                  >
-                    {isRecording ? <MicOff size={22} /> : <Mic size={22} />}
-                  </Button>
-                  <div className="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-100">
-                    <Switch
-                      id="language-mode"
-                      checked={isHindi}
-                      onCheckedChange={() => {
-                        const wasRecording = isRecording;
-
-                        // Stop current recognition if running
-                        if (isRecording) {
-                          setIsRecording(false);
-                          stopRecognition();
-                        }
-
-                        // Toggle language
-                        setIsHindi(!isHindi);
-
-                        // Restart recording if it was active
-                        if (wasRecording) {
-                          setTimeout(() => {
-                            setIsRecording(true);
-                          }, 200);
-                        }
-                      }}
-                      className="data-[state=checked]:bg-black cursor-pointer"
-                      disabled={isLoading}
-                    />
-                    <Label
-                      htmlFor="language-mode"
-                      className="flex items-center text-sm cursor-pointer"
-                    >
-                      <Languages className="mr-1.5 h-4 w-4" />
-                      {isHindi ? "Hindi" : "English"}
-                    </Label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-3 mt-1">
-                <div className="sm:text-right">
-                  <Label className="text-sm font-medium">Transcription</Label>
-                </div>
-                <div className="sm:col-span-3 relative">
-                  <Textarea
-                    value={transcript}
-                    onChange={(e) => setTranscript(e.target.value)}
-                    className={`min-h-[100px] text-sm p-3 pr-10 [&>*]:caret-black [caret-color:black] ${
-                      isRecording
-                        ? "border-red-400 focus-visible:ring-red-300"
-                        : ""
-                    }`}
-                    placeholder={
-                      isRecording
-                        ? "Recording in progress (manual input enabled)..."
-                        : "Enter notes manually or use the recording button"
-                    }
-                    disabled={isLoading}
-                    style={{ caretColor: "black" }}
-                  />
-                  {isRecording && (
-                    <div
-                      className={`absolute top-2 right-2 flex items-center space-x-1 rounded-full px-2 py-0.5 text-xs ${
-                        wordDetected
-                          ? "bg-green-100 text-green-700 animate-bounce"
-                          : "bg-red-100 text-red-700 animate-pulse"
-                      }`}
-                    >
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          wordDetected ? "bg-green-600" : "bg-red-600"
-                        }`}
-                      ></div>
-                      <span>
-                        {wordDetected ? "Word Detected" : "Recording"}
-                      </span>
+          {/* Scrollable Content */}
+          <div className="flex-grow overflow-y-auto">
+            <form onSubmit={handleSubmit} className="px-6 md:px-8 py-6">
+              {/* Form Content */}
+              <div className="space-y-6">
+                {/* Basic Info Group */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Name */}
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="name"
+                        className="text-xs font-medium text-gray-600"
+                      >
+                        Name
+                      </Label>
+                      <Input
+                        id="name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="h-11 rounded-xl shadow-sm border-gray-200 focus:ring-2 focus:ring-black focus:ring-offset-1 transition-shadow bg-white"
+                        required
+                        disabled={isLoading}
+                        placeholder="Patient name"
+                      />
                     </div>
-                  )}
-                  {transcript && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setTranscript("")}
-                      className="absolute right-2 bottom-2 h-7 w-7 p-0"
+
+                    {/* Age */}
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="age"
+                        className="text-xs font-medium text-gray-600"
+                      >
+                        Age
+                      </Label>
+                      <Input
+                        id="age"
+                        type="number"
+                        value={age}
+                        onChange={(e) => setAge(e.target.value)}
+                        className="h-11 rounded-xl shadow-sm border-gray-200 focus:ring-2 focus:ring-black focus:ring-offset-1 transition-shadow bg-white"
+                        required
+                        disabled={isLoading}
+                        placeholder="Age"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Gender Selection */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-gray-600">
+                      Gender
+                    </Label>
+                    <RadioGroup
+                      value={gender}
+                      onValueChange={setGender}
+                      className="flex space-x-5"
                       disabled={isLoading}
-                      aria-label="Clear transcription"
                     >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
+                      <div className="flex items-center space-x-1.5">
+                        <RadioGroupItem
+                          value="Male"
+                          id="male"
+                          className="h-4 w-4 border-gray-300 text-black focus:ring-black"
+                        />
+                        <Label htmlFor="male" className="text-sm">
+                          Male
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-1.5">
+                        <RadioGroupItem
+                          value="Female"
+                          id="female"
+                          className="h-4 w-4 border-gray-300 text-black focus:ring-black"
+                        />
+                        <Label htmlFor="female" className="text-sm">
+                          Female
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-1.5">
+                        <RadioGroupItem
+                          value="Other"
+                          id="other"
+                          className="h-4 w-4 border-gray-300 text-black focus:ring-black"
+                        />
+                        <Label htmlFor="other" className="text-sm">
+                          Other
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {/* Contact Info */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Phone */}
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="phone"
+                        className="text-xs font-medium text-gray-600"
+                      >
+                        Phone
+                      </Label>
+                      <Input
+                        id="phone"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="h-11 rounded-xl shadow-sm border-gray-200 focus:ring-2 focus:ring-black focus:ring-offset-1 transition-shadow bg-white"
+                        disabled={isLoading}
+                        placeholder="Contact number"
+                      />
+                    </div>
+
+                    {/* Email */}
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="email"
+                        className="text-xs font-medium text-gray-600"
+                      >
+                        Email
+                      </Label>
+                      <Input
+                        id="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="h-11 rounded-xl shadow-sm border-gray-200 focus:ring-2 focus:ring-black focus:ring-offset-1 transition-shadow bg-white"
+                        disabled={isLoading}
+                        placeholder="Email address"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Voice Recording Section */}
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <Label className="text-xs font-medium text-gray-600">
+                      Voice Notes
+                    </Label>
+                    <div className="flex items-center space-x-2 bg-gray-50 p-1 pl-2 pr-3 rounded-full shadow-sm border border-gray-100">
+                      <Switch
+                        id="language-mode"
+                        checked={isHindi}
+                        onCheckedChange={() => {
+                          const wasRecording = isRecording;
+                          if (isRecording) {
+                            setIsRecording(false);
+                            stopRecognition();
+                          }
+                          setIsHindi(!isHindi);
+                          if (wasRecording) {
+                            setTimeout(() => {
+                              setIsRecording(true);
+                            }, 200);
+                          }
+                        }}
+                        className="data-[state=checked]:bg-black"
+                        disabled={isLoading}
+                      />
+                      <Label
+                        htmlFor="language-mode"
+                        className="text-xs font-medium"
+                      >
+                        {isHindi ? "Hindi" : "English"}
+                      </Label>
+                    </div>
+                  </div>
+
+                  {/* Recording Controls */}
+                  <div className="flex flex-col space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Button
+                        type="button"
+                        variant={isRecording ? "destructive" : "outline"}
+                        size="sm"
+                        onClick={toggleRecording}
+                        className={`h-11 pl-3.5 pr-4 flex items-center justify-center gap-2 rounded-xl shadow-sm ${
+                          isRecording
+                            ? "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white border-none"
+                            : "border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-800"
+                        }`}
+                        disabled={isLoading}
+                      >
+                        {isRecording ? (
+                          <>
+                            <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                            <MicOff size={15} />
+                            <span className="text-xs font-medium">
+                              Stop Recording
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Mic size={15} />
+                            <span className="text-xs font-medium">
+                              Record Voice
+                            </span>
+                          </>
+                        )}
+                      </Button>
+
+                      {/* Tags */}
+                      {!isRecording && (
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="px-2.5 py-1 bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 rounded-full text-xs font-medium border border-gray-100 shadow-sm">
+                            Symptoms
+                          </span>
+                          <span className="px-2.5 py-1 bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 rounded-full text-xs font-medium border border-gray-100 shadow-sm">
+                            Diagnosis
+                          </span>
+                          <span className="px-2.5 py-1 bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 rounded-full text-xs font-medium border border-gray-100 shadow-sm hidden md:inline-block">
+                            Medication
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Recording Tips - only visible when recording */}
+                    {isRecording && (
+                      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                        {/* Header with red gradient matching modal style */}
+                        <div className="bg-gradient-to-r from-red-600 to-red-700 px-3 py-2 text-white flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="relative flex-shrink-0">
+                              <div
+                                className="absolute inset-0 bg-white/30 rounded-full animate-ping opacity-70"
+                                style={{ animationDuration: "1.5s" }}
+                              ></div>
+                              <div className="relative h-1.5 w-1.5 rounded-full bg-white"></div>
+                            </div>
+                            <p className="font-medium text-xs">
+                              Voice Commands
+                            </p>
+                          </div>
+                          <div className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
+                            Recording
+                          </div>
+                        </div>
+
+                        {/* Command cards in 2x2 grid with red accents */}
+                        <div className="p-2.5 grid grid-cols-2 gap-2">
+                          <div className="flex flex-col space-y-2">
+                            <div className="bg-white rounded-xl py-2 px-2 shadow-sm border border-gray-200 flex flex-col items-center hover:bg-red-50/20 group">
+                              <span className="font-semibold text-xs text-red-700 group-hover:text-red-800">
+                                Symptoms
+                              </span>
+                              <span className="text-[10px] text-gray-500 mt-0.5 font-medium">
+                                Pain, duration, severity
+                              </span>
+                            </div>
+
+                            <div className="bg-white rounded-xl py-2 px-2 shadow-sm border border-gray-200 flex flex-col items-center hover:bg-red-50/20 group">
+                              <span className="font-semibold text-xs text-red-700 group-hover:text-red-800">
+                                Diagnosis
+                              </span>
+                              <span className="text-[10px] text-gray-500 mt-0.5 font-medium">
+                                Condition, findings
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col space-y-2">
+                            <div className="bg-white rounded-xl py-2 px-2 shadow-sm border border-gray-200 flex flex-col items-center hover:bg-red-50/20 group">
+                              <span className="font-semibold text-xs text-red-700 group-hover:text-red-800">
+                                Medication
+                              </span>
+                              <span className="text-[10px] text-gray-500 mt-0.5 font-medium">
+                                Dosage, frequency
+                              </span>
+                            </div>
+
+                            <div className="bg-white rounded-xl py-2 px-2 shadow-sm border border-gray-200 flex flex-col items-center hover:bg-red-50/20 group">
+                              <span className="font-semibold text-xs text-red-700 group-hover:text-red-800">
+                                Precautions
+                              </span>
+                              <span className="text-[10px] text-gray-500 mt-0.5 font-medium">
+                                Instructions, advice
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footer matching modal style but with red text */}
+                        <div className="px-2.5 pb-2.5 pt-0">
+                          <div className="bg-gray-50 rounded-xl border border-gray-200 py-1.5 px-2 text-center shadow-sm">
+                            <p className="text-[10px] text-red-600 font-medium">
+                              Start by saying the heading, then dictate your
+                              notes
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Transcription Area - only needed when recording */}
+                    <div className="relative mt-1">
+                      <Textarea
+                        value={transcript}
+                        onChange={(e) => setTranscript(e.target.value)}
+                        className={`min-h-[140px] p-4 pr-12 rounded-xl resize-none text-sm shadow-sm border bg-white ${
+                          isRecording
+                            ? "border-red-300 focus-visible:ring-red-200 bg-red-50/10"
+                            : "border-gray-200 focus-visible:ring-black focus-visible:ring-offset-1"
+                        } transition-all`}
+                        placeholder={
+                          isRecording
+                            ? "Recording in progress... (say each heading before content)"
+                            : "Enter patient notes or use voice recording"
+                        }
+                        disabled={isLoading}
+                      />
+                      {isRecording && (
+                        <div className="absolute top-3.5 right-3.5 rounded-full px-2.5 py-1 text-xs flex items-center space-x-2 bg-white shadow-sm border border-gray-100">
+                          <div
+                            className={`h-2.5 w-2.5 rounded-full ${
+                              wordDetected
+                                ? "bg-green-500"
+                                : "bg-red-500 animate-pulse"
+                            }`}
+                          />
+                          <span className="font-medium text-gray-700">
+                            {wordDetected ? "Word Detected" : "Listening..."}
+                          </span>
+                        </div>
+                      )}
+                      {transcript && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setTranscript("")}
+                          className="absolute right-2.5 bottom-2.5 h-8 w-8 p-0 opacity-60 hover:opacity-100 rounded-full hover:bg-gray-100"
+                          disabled={isLoading}
+                          aria-label="Clear transcription"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-            <DialogFooter className="mt-5 gap-2 flex-col sm:flex-row">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  // Explicitly stop recording and reset everything
-                  setIsRecording(false);
-                  stopRecognition();
-                  resetForm();
-                  onClose();
-                }}
-                disabled={isLoading}
-                className="bg-white text-black border-gray-200 hover:bg-gray-50 px-4 py-2 text-sm h-9 cursor-pointer w-full sm:w-auto disabled:opacity-50"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="bg-black hover:bg-gray-800 text-white px-4 py-2 text-sm h-9 cursor-pointer w-full sm:w-auto disabled:opacity-50"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  "Add Patient"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
+
+              {/* Form Footer */}
+              <div className="mt-8 mb-2 flex flex-col sm:flex-row sm:justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsRecording(false);
+                    stopRecognition();
+                    resetForm();
+                    onClose();
+                  }}
+                  disabled={isLoading}
+                  className="border-gray-200 hover:bg-gray-50 text-gray-700 text-sm h-11 rounded-xl shadow-sm"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="bg-gradient-to-r from-gray-800 to-black hover:from-black hover:to-gray-900 text-white text-sm h-11 rounded-xl shadow-md transition-all"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving Patient...
+                    </>
+                  ) : (
+                    "Add Patient"
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
         </DialogContent>
       </Dialog>
     </>

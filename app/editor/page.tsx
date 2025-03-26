@@ -6,6 +6,7 @@ import {
   Save,
   Stethoscope,
   Mic,
+  MicOff,
   XCircle,
   Loader2,
   ClipboardList,
@@ -25,6 +26,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 // Define interfaces for type safety
 interface Medication {
@@ -52,17 +55,62 @@ function EditorContent() {
   const [visitData, setVisitData] = useState<VisitData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  // const [subLoader, setSubLoader] = useState(false);
+  // Audio recording states
   const [isListening, setIsListening] = useState<{ [key: string]: boolean }>(
     {}
   );
+  const [wordDetected, setWordDetected] = useState<{ [key: string]: boolean }>(
+    {}
+  );
+  const [isHindi, setIsHindi] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [isSpeechRecognitionSupported, setIsSpeechRecognitionSupported] =
+    useState(true);
   const searchParams = useSearchParams();
   const router = useRouter();
   const patientId = searchParams.get("patientId");
   const visitId = searchParams.get("visitId");
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const { data } = useData();
+  // Reference for speech recognition
+  const recognitionRef = useRef<any>(null);
+  const currentFieldRef = useRef<string | null>(null);
+
+  // Check browser compatibility
+  useEffect(() => {
+    const checkBrowserCompatibility = () => {
+      const isSupported =
+        "webkitSpeechRecognition" in window || "SpeechRecognition" in window;
+
+      setIsSpeechRecognitionSupported(isSupported);
+
+      if (!isSupported) {
+        console.warn("Speech recognition not supported in this browser");
+        toast.error("Speech Recognition Not Available", {
+          description:
+            "Your browser doesn't support voice recording. Please try a different browser like Chrome.",
+        });
+      }
+    };
+
+    checkBrowserCompatibility();
+  }, []);
+
+  // Setup speech recognition cleanup
+  useEffect(() => {
+    // Handle page unload/close - stop recording
+    const handleBeforeUnload = () => {
+      stopRecognition();
+    };
+
+    // Add event listener for page close/unload
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // Cleanup function
+    return () => {
+      stopRecognition();
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -104,6 +152,259 @@ function EditorContent() {
 
     fetchData();
   }, [patientId, visitId, data]);
+
+  // Add a clear function to properly stop recognition
+  const stopRecognition = () => {
+    console.log("Stopping speech recognition");
+    // Stop the recognition instance
+    if (recognitionRef.current) {
+      try {
+        // Remove all event listeners to prevent any callbacks
+        if (recognitionRef.current.onresult)
+          recognitionRef.current.onresult = null;
+        if (recognitionRef.current.onend) recognitionRef.current.onend = null;
+        if (recognitionRef.current.onerror)
+          recognitionRef.current.onerror = null;
+
+        // Abort is more aggressive than stop
+        recognitionRef.current.abort();
+        console.log("Successfully aborted recognition");
+      } catch (err) {
+        console.error("Error stopping recognition:", err);
+      } finally {
+        recognitionRef.current = null;
+        currentFieldRef.current = null;
+        // Reset all listening states
+        setIsListening({});
+        console.log("Reset all listening states");
+      }
+    }
+
+    // Force release the microphone by getting and immediately stopping all audio tracks
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          const tracks = stream.getTracks();
+          tracks.forEach((track) => {
+            track.stop();
+          });
+          console.log("Successfully stopped all audio tracks");
+        })
+        .catch((err) => {
+          console.error("Could not get audio to stop tracks:", err);
+        });
+    }
+  };
+
+  // Start speech recognition for a specific field
+  const startRecognition = (fieldKey: string) => {
+    // Don't start if we're not in recording state
+    if (!isListening[fieldKey]) return;
+
+    // Clean up any existing recognition instance
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+        recognitionRef.current = null;
+      } catch (err) {
+        console.log("Error cleaning up previous recognition:", err);
+      }
+    }
+
+    try {
+      // Check if browser supports SpeechRecognition
+      if (
+        !("webkitSpeechRecognition" in window) &&
+        !("SpeechRecognition" in window)
+      ) {
+        console.error("Speech recognition not supported in this browser");
+        toast.error("Speech Recognition Not Supported", {
+          description: "Your browser doesn't support voice recording.",
+        });
+        setIsListening((prev) => ({ ...prev, [fieldKey]: false }));
+        return;
+      }
+
+      // First request microphone permissions explicitly
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          // Stop the stream immediately, we just needed permission
+          stream.getTracks().forEach((track) => track.stop());
+
+          // Create speech recognition instance
+          // @ts-ignore - TypeScript doesn't know about these browser-specific APIs
+          const SpeechRecognition =
+            window.SpeechRecognition || window.webkitSpeechRecognition;
+          const recognition = new SpeechRecognition();
+
+          // Configure recognition
+          recognition.continuous = false; // Get one phrase at a time
+          recognition.interimResults = true;
+          recognition.lang = isHindi ? "hi-IN" : "en-US";
+
+          // Handle results
+          recognition.onresult = (event: any) => {
+            // Don't process if we've stopped recording
+            if (!isListening[fieldKey]) return;
+
+            const resultIndex = event.resultIndex;
+            const result = event.results[resultIndex];
+
+            if (result.isFinal) {
+              const transcript = result[0].transcript.trim();
+              if (transcript) {
+                console.log(`Detected speech: "${transcript}"`);
+                // Flash the word detected indicator
+                setWordDetected((prev) => ({ ...prev, [fieldKey]: true }));
+                setTimeout(
+                  () =>
+                    setWordDetected((prev) => ({ ...prev, [fieldKey]: false })),
+                  500
+                );
+
+                // Parse the field key to determine which field to update
+                updateFieldWithTranscript(fieldKey, transcript);
+              }
+            }
+          };
+
+          // Reset recognition after each result to prevent cumulative results
+          recognition.onend = () => {
+            console.log("Recognition ended, checking if should restart");
+            // Don't restart if we're not supposed to be recording anymore
+            if (!isListening[fieldKey]) {
+              if (recognitionRef.current) {
+                recognitionRef.current = null;
+              }
+              return;
+            }
+
+            // Short delay before restarting
+            setTimeout(() => {
+              // Check again before restarting (in case recording was stopped during timeout)
+              if (!isListening[fieldKey]) return;
+
+              // Just restart the recognition
+              try {
+                startRecognition(fieldKey);
+              } catch (error) {
+                console.error("Error restarting recognition:", error);
+              }
+            }, 100);
+          };
+
+          recognition.onerror = (event: any) => {
+            console.error("Recognition error:", event.error);
+
+            // Handle specific errors
+            if (event.error === "no-speech" || event.error === "aborted") {
+              console.log("Handling normal recognition end case:", event.error);
+              // These are expected errors, no need to restart if we've intentionally stopped
+              if (!isListening[fieldKey]) return;
+            } else if (
+              event.error === "not-allowed" ||
+              event.error === "service-not-allowed"
+            ) {
+              // Permission denied
+              toast.error("Microphone Access Denied", {
+                description:
+                  "Please allow microphone access in your browser settings.",
+              });
+              setIsListening((prev) => ({ ...prev, [fieldKey]: false }));
+              return;
+            }
+
+            // Restart on error too, but only if we're still supposed to be recording
+            if (isListening[fieldKey]) {
+              setTimeout(() => {
+                startRecognition(fieldKey);
+              }, 500);
+            }
+          };
+
+          // Start recognition
+          recognition.start();
+          console.log("Speech recognition started for", fieldKey);
+          recognitionRef.current = recognition;
+          currentFieldRef.current = fieldKey;
+        })
+        .catch((err) => {
+          console.error("Microphone permission denied:", err);
+          toast.error("Microphone Access Denied", {
+            description:
+              "Please allow microphone access to use voice recording.",
+          });
+          setIsListening((prev) => ({ ...prev, [fieldKey]: false }));
+        });
+    } catch (error) {
+      console.error("Error starting speech recognition:", error);
+      setIsListening((prev) => ({ ...prev, [fieldKey]: false }));
+      toast.error("Recording Failed", {
+        description: "Could not start voice recording. Please try again.",
+      });
+    }
+  };
+
+  // Update the appropriate field with the transcript
+  const updateFieldWithTranscript = (fieldKey: string, transcript: string) => {
+    if (!visitData) return;
+
+    const parts = fieldKey.split("-");
+    const field = parts[0] as keyof VisitData;
+    const index = parseInt(parts[1]);
+
+    if (isNaN(index)) return;
+
+    if (field === "symptoms") {
+      setVisitData((prev) => ({
+        ...prev!,
+        symptoms: prev!.symptoms + (prev!.symptoms ? " " : "") + transcript,
+      }));
+    } else if (field === "extraPrescriptions") {
+      setVisitData((prev) => ({
+        ...prev!,
+        extraPrescriptions:
+          (prev!.extraPrescriptions || "") +
+          (prev!.extraPrescriptions || "" ? " " : "") +
+          transcript,
+      }));
+    } else if (field === "diagnosis") {
+      setVisitData((prev) => {
+        const updatedDiagnosis = [...prev!.diagnosis];
+        updatedDiagnosis[index] =
+          updatedDiagnosis[index] +
+          (updatedDiagnosis[index] ? " " : "") +
+          transcript;
+        return { ...prev!, diagnosis: updatedDiagnosis };
+      });
+    } else if (field === "precautions") {
+      setVisitData((prev) => {
+        const updatedPrecautions = [...prev!.precautions];
+        updatedPrecautions[index] =
+          updatedPrecautions[index] +
+          (updatedPrecautions[index] ? " " : "") +
+          transcript;
+        return { ...prev!, precautions: updatedPrecautions };
+      });
+    } else if (field === "prescribe_meds") {
+      const subField = parts[2] as keyof Medication;
+      if (subField && subField === "nameofmedicine") {
+        setVisitData((prev) => {
+          const updatedMeds = [...prev!.prescribe_meds];
+          updatedMeds[index] = {
+            ...updatedMeds[index],
+            nameofmedicine:
+              updatedMeds[index].nameofmedicine +
+              (updatedMeds[index].nameofmedicine ? " " : "") +
+              transcript,
+          };
+          return { ...prev!, prescribe_meds: updatedMeds };
+        });
+      }
+    }
+  };
 
   // Handle adding fields
   const addField = (field: ArrayField) => {
@@ -166,6 +467,76 @@ function EditorContent() {
       }
     });
   };
+
+  // Handle toggling the speech recognition
+  const toggleListening = (
+    field: keyof VisitData,
+    index: number,
+    subField?: keyof Medication
+  ) => {
+    const fieldKey = subField
+      ? `${field}-${index}-${subField}`
+      : `${field}-${index}`;
+
+    // Check if speech recognition is supported
+    if (!isSpeechRecognitionSupported) {
+      toast.error("Speech Recognition Not Available", {
+        description:
+          "Your browser doesn't support voice recording. Please try a different browser like Chrome.",
+      });
+      return;
+    }
+
+    // If already in "listening" state for this field, stop the recording
+    if (isListening[fieldKey]) {
+      console.log(`Stopping recording for ${fieldKey}`);
+      stopRecognition();
+      setIsListening((prev) => ({ ...prev, [fieldKey]: false }));
+    } else {
+      // Stop any other recording that might be happening
+      if (recognitionRef.current) {
+        stopRecognition();
+      }
+
+      console.log(`Starting voice input for ${fieldKey}`);
+      currentFieldRef.current = fieldKey;
+
+      // Set this field to listening state - the useEffect will handle starting the recording
+      setIsListening((prev) => {
+        // First clear any existing listening states
+        const newState = {};
+        // Then set only this field to listening
+        return { ...newState, [fieldKey]: true };
+      });
+    }
+  };
+
+  // Add effect to control speech recognition based on isListening state
+  useEffect(() => {
+    // Check if any field is in listening state
+    const activeFieldKey = Object.entries(isListening).find(
+      ([key, value]) => value
+    )?.[0];
+
+    if (activeFieldKey) {
+      console.log(`Starting recognition for active field: ${activeFieldKey}`);
+      currentFieldRef.current = activeFieldKey;
+      startRecognition(activeFieldKey);
+    } else {
+      // If no field is in listening state, ensure recognition is stopped
+      if (recognitionRef.current) {
+        console.log("No active fields, stopping any ongoing recognition");
+        stopRecognition();
+      }
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (recognitionRef.current) {
+        stopRecognition();
+      }
+    };
+  }, [isListening]);
 
   // Handle form submission (API-ready)
   const handleDone = async () => {
@@ -245,7 +616,6 @@ function EditorContent() {
       });
     } finally {
       setSaving(false);
-      // setSubLoader(false);
     }
   };
 
@@ -263,122 +633,61 @@ function EditorContent() {
     router.push("/");
   };
 
-  // Handle voice input
-  const toggleListening = (
-    field: keyof VisitData,
-    index: number,
-    subField?: keyof Medication
-  ) => {
-    const fieldKey = subField
-      ? `${field}-${index}-${subField}`
-      : `${field}-${index}`;
-
-    console.log("Toggle listening for field:", fieldKey);
-
-    // If already listening for this field, stop listening
-    if (isListening[fieldKey]) {
-      console.log("Stopping listening for field:", fieldKey);
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-        recognitionRef.current = null;
-      }
-      setIsListening((prev) => ({ ...prev, [fieldKey]: false }));
-      return;
-    }
-
-    // Check if browser supports speech recognition
-    if (
-      !("webkitSpeechRecognition" in window) &&
-      !("SpeechRecognition" in window)
-    ) {
-      toast.error("Browser Not Supported", {
-        description:
-          "Speech recognition is not supported in your browser. Please use Chrome.",
+  // Handler for displaying visual indicator on UI when word is detected
+  const verifyRecognitionWorks = async () => {
+    if (recognitionRef.current) {
+      toast.info("Speech recognition is already active", {
+        description: "Try speaking into your microphone",
       });
       return;
     }
 
-    // Request microphone permission explicitly
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then(() => {
-        console.log("Microphone permission granted");
-
-        // Create speech recognition instance
-        const SpeechRecognition =
-          window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        recognitionRef.current = recognition;
-
-        recognition.lang = "en-US";
-        recognition.continuous = true;
-        recognition.interimResults = true;
-
-        // Set listening state for this field
-        setIsListening((prev) => ({ ...prev, [fieldKey]: true }));
-
-        // Handle results
-        recognition.onresult = (event) => {
-          console.log("Got speech result");
-          const transcript = Array.from(event.results)
-            .map((result) => result[0])
-            .map((result) => result.transcript)
-            .join("");
-
-          // Update the field with transcript
-          if (field === "symptoms") {
-            setVisitData((prev) => ({
-              ...prev!,
-              symptoms: transcript,
-            }));
-          } else if (field === "extraPrescriptions") {
-            // Handle extraPrescriptions separately
-            setVisitData((prev) => ({
-              ...prev!,
-              extraPrescriptions: transcript,
-            }));
-          } else if (field === "prescribe_meds" && subField) {
-            handleChange(field as ArrayField, index, transcript, subField);
-          } else {
-            handleChange(field as ArrayField, index, transcript);
-          }
-        };
-
-        // Handle end of speech recognition
-        recognition.onend = () => {
-          console.log("Speech recognition ended for field:", fieldKey);
-          setIsListening((prev) => ({ ...prev, [fieldKey]: false }));
-          recognitionRef.current = null;
-        };
-
-        recognition.onerror = (event) => {
-          console.error("Speech recognition error:", event);
-          toast.error("Recognition Error", {
-            description:
-              "There was an error with speech recognition. Please try again.",
-          });
-          setIsListening((prev) => ({ ...prev, [fieldKey]: false }));
-        };
-
-        // Start listening
-        try {
-          recognition.start();
-          console.log("Started listening for field:", fieldKey);
-        } catch (error) {
-          console.error("Error starting recognition:", error);
-          toast.error("Failed to start listening", {
-            description:
-              "Please check your microphone permissions and try again.",
-          });
-          setIsListening((prev) => ({ ...prev, [fieldKey]: false }));
-        }
-      })
-      .catch((error) => {
-        console.error("Microphone permission denied:", error);
-        toast.error("Microphone Access Denied", {
-          description: "Please allow microphone access to use voice recording.",
+    try {
+      const isSupported =
+        "webkitSpeechRecognition" in window || "SpeechRecognition" in window;
+      if (!isSupported) {
+        toast.error("Speech Recognition Not Supported", {
+          description: "Your browser doesn't support the Web Speech API.",
         });
+        return;
+      }
+
+      // Request microphone permission
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+
+      toast.success("Microphone permission granted", {
+        description: "You can now use voice input for any field.",
       });
+
+      // Create a test recognition instance
+      // @ts-ignore
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+      const testRecognition = new SpeechRecognition();
+      testRecognition.continuous = false;
+      testRecognition.interimResults = false;
+      testRecognition.lang = "en-US";
+
+      // Start it and immediately stop it as a test
+      testRecognition.start();
+      setTimeout(() => {
+        try {
+          testRecognition.stop();
+          toast.success("Speech recognition initialized successfully", {
+            description: "Voice input should now work on all fields.",
+          });
+        } catch (err) {
+          console.error("Error stopping test recognition:", err);
+        }
+      }, 500);
+    } catch (err) {
+      console.error("Error testing speech recognition:", err);
+      toast.error("Speech Recognition Failed", {
+        description:
+          "Could not access your microphone. Please check your browser settings.",
+      });
+    }
   };
 
   // Loader component
@@ -416,13 +725,48 @@ function EditorContent() {
       <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-md p-4 sm:p-8 border border-gray-100">
         {/* Header */}
         <div className="border-b border-gray-200 pb-4 sm:pb-6 mb-5 sm:mb-8">
-          <div className="flex items-center mb-1">
-            <div className="h-8 w-8 sm:h-10 sm:w-10 bg-blue-50 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-              <Stethoscope className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center">
+              <div className="h-8 w-8 sm:h-10 sm:w-10 bg-blue-50 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                <Stethoscope className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-semibold text-gray-800">
+                Visit Editor
+              </h1>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-semibold text-gray-800">
-              Visit Editor
-            </h1>
+
+            <div className="flex items-center gap-2">
+              {/* Microphone test button */}
+              <button
+                onClick={verifyRecognitionWorks}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-md text-xs font-medium text-gray-700 transition-colors"
+                title="Test microphone access"
+              >
+                <Mic className="h-3.5 w-3.5" /> Test Mic
+              </button>
+
+              {/* Language toggle switch */}
+              <div className="flex items-center space-x-2 bg-gray-50 p-1.5 pl-2 pr-3 rounded-full shadow-sm border border-gray-200">
+                <Switch
+                  id="language-mode"
+                  checked={isHindi}
+                  onCheckedChange={(checked) => {
+                    // Stop any active recording before changing language
+                    if (recognitionRef.current) {
+                      stopRecognition();
+                    }
+                    setIsHindi(checked);
+                  }}
+                  className="data-[state=checked]:bg-black"
+                />
+                <label
+                  htmlFor="language-mode"
+                  className="text-xs font-medium cursor-pointer"
+                >
+                  {isHindi ? "Hindi" : "English"}
+                </label>
+              </div>
+            </div>
           </div>
           <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-500 ml-1">
             Update or add details for patient visit record
@@ -443,21 +787,35 @@ function EditorContent() {
               key={index}
               className="mb-3 sm:mb-4 flex items-start gap-2 sm:gap-3 group animate-fade-in"
             >
-              <textarea
-                value={item}
-                onChange={(e) =>
-                  handleChange("diagnosis", index, e.target.value)
-                }
-                placeholder="Enter diagnosis..."
-                className="w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 hover:border-blue-200 text-sm sm:text-base shadow-sm"
-                rows={3}
-              />
+              <div className="relative w-full">
+                <textarea
+                  value={item}
+                  onChange={(e) =>
+                    handleChange("diagnosis", index, e.target.value)
+                  }
+                  placeholder="Enter diagnosis..."
+                  className={`w-full p-3.5 sm:p-4 bg-white border ${
+                    isListening[`diagnosis-${index}`]
+                      ? "border-blue-300 focus:ring-blue-200 bg-blue-50/10"
+                      : "border-gray-200 focus:ring-blue-400"
+                  } rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 hover:border-blue-200 text-sm sm:text-base shadow-sm`}
+                  rows={3}
+                />
+                {isListening[`diagnosis-${index}`] && (
+                  <div className="absolute top-0 right-0 mt-1 mr-1">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium animate-pulse">
+                      <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                      Recording
+                    </span>
+                  </div>
+                )}
+              </div>
               <div className="flex flex-col gap-2.5">
                 <button
                   onClick={() => toggleListening("diagnosis", index)}
                   className={`p-2.5 ${
                     isListening[`diagnosis-${index}`]
-                      ? "bg-blue-50 text-blue-500"
+                      ? "bg-blue-100 text-blue-500"
                       : "text-gray-400 hover:text-blue-400 hover:bg-blue-50"
                   } rounded-full transition-all duration-200 flex-shrink-0 shadow-sm`}
                   title={
@@ -472,7 +830,14 @@ function EditorContent() {
                   }
                 >
                   {isListening[`diagnosis-${index}`] ? (
-                    <XCircle className="h-5 w-5 sm:h-5 sm:w-5" />
+                    <>
+                      <div className="absolute -left-1 -top-1">
+                        {wordDetected[`diagnosis-${index}`] && (
+                          <div className="h-2 w-2 rounded-full bg-green-500 animate-ping opacity-75" />
+                        )}
+                      </div>
+                      <MicOff className="h-5 w-5 sm:h-5 sm:w-5" />
+                    </>
                   ) : (
                     <Mic className="h-5 w-5 sm:h-5 sm:w-5" />
                   )}
@@ -506,23 +871,37 @@ function EditorContent() {
             Symptoms and Observations
           </h2>
           <div className="mb-3 sm:mb-4 group animate-fade-in flex items-start gap-2 sm:gap-3">
-            <textarea
-              value={visitData.symptoms}
-              onChange={(e) =>
-                setVisitData((prev) => ({
-                  ...prev!,
-                  symptoms: e.target.value,
-                }))
-              }
-              placeholder="Enter patient symptoms and clinical observations..."
-              className="w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all duration-200 hover:border-amber-200 text-sm sm:text-base shadow-sm"
-              rows={4}
-            />
+            <div className="relative w-full">
+              <textarea
+                value={visitData.symptoms}
+                onChange={(e) =>
+                  setVisitData((prev) => ({
+                    ...prev!,
+                    symptoms: e.target.value,
+                  }))
+                }
+                placeholder="Enter patient symptoms and clinical observations..."
+                className={`w-full p-3.5 sm:p-4 bg-white border ${
+                  isListening[`symptoms-0`]
+                    ? "border-amber-300 focus:ring-amber-200 bg-amber-50/10"
+                    : "border-gray-200 focus:ring-amber-400"
+                } rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 hover:border-amber-200 text-sm sm:text-base shadow-sm`}
+                rows={4}
+              />
+              {isListening[`symptoms-0`] && (
+                <div className="absolute top-0 right-0 mt-1 mr-1">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium animate-pulse">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                    Recording
+                  </span>
+                </div>
+              )}
+            </div>
             <button
               onClick={() => toggleListening("symptoms", 0)}
-              className={`p-2.5 ${
+              className={`p-2.5 relative ${
                 isListening[`symptoms-0`]
-                  ? "bg-amber-50 text-amber-500"
+                  ? "bg-amber-100 text-amber-500"
                   : "text-gray-400 hover:text-amber-400 hover:bg-amber-50"
               } rounded-full transition-all duration-200 flex-shrink-0 shadow-sm mt-1`}
               title={
@@ -537,7 +916,14 @@ function EditorContent() {
               }
             >
               {isListening[`symptoms-0`] ? (
-                <XCircle className="h-5 w-5 sm:h-5 sm:w-5" />
+                <>
+                  <div className="absolute -left-1 -top-1">
+                    {wordDetected[`symptoms-0`] && (
+                      <div className="h-2 w-2 rounded-full bg-green-500 animate-ping opacity-75" />
+                    )}
+                  </div>
+                  <MicOff className="h-5 w-5 sm:h-5 sm:w-5" />
+                </>
               ) : (
                 <Mic className="h-5 w-5 sm:h-5 sm:w-5" />
               )}
@@ -558,21 +944,35 @@ function EditorContent() {
               key={index}
               className="mb-3 sm:mb-4 flex items-start gap-2 sm:gap-3 group animate-fade-in"
             >
-              <textarea
-                value={item}
-                onChange={(e) =>
-                  handleChange("precautions", index, e.target.value)
-                }
-                placeholder="Enter precaution..."
-                className="w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all duration-200 hover:border-green-200 text-sm sm:text-base shadow-sm"
-                rows={3}
-              />
+              <div className="relative w-full">
+                <textarea
+                  value={item}
+                  onChange={(e) =>
+                    handleChange("precautions", index, e.target.value)
+                  }
+                  placeholder="Enter precaution..."
+                  className={`w-full p-3.5 sm:p-4 bg-white border ${
+                    isListening[`precautions-${index}`]
+                      ? "border-green-300 focus:ring-green-200 bg-green-50/10"
+                      : "border-gray-200 focus:ring-green-400"
+                  } rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 hover:border-green-200 text-sm sm:text-base shadow-sm`}
+                  rows={3}
+                />
+                {isListening[`precautions-${index}`] && (
+                  <div className="absolute top-0 right-0 mt-1 mr-1">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium animate-pulse">
+                      <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                      Recording
+                    </span>
+                  </div>
+                )}
+              </div>
               <div className="flex flex-col gap-2.5">
                 <button
                   onClick={() => toggleListening("precautions", index)}
-                  className={`p-2.5 ${
+                  className={`p-2.5 relative ${
                     isListening[`precautions-${index}`]
-                      ? "bg-green-50 text-green-500"
+                      ? "bg-green-100 text-green-500"
                       : "text-gray-400 hover:text-green-400 hover:bg-green-50"
                   } rounded-full transition-all duration-200 flex-shrink-0 shadow-sm`}
                   title={
@@ -587,7 +987,14 @@ function EditorContent() {
                   }
                 >
                   {isListening[`precautions-${index}`] ? (
-                    <XCircle className="h-5 w-5 sm:h-5 sm:w-5" />
+                    <>
+                      <div className="absolute -left-1 -top-1">
+                        {wordDetected[`precautions-${index}`] && (
+                          <div className="h-2 w-2 rounded-full bg-green-500 animate-ping opacity-75" />
+                        )}
+                      </div>
+                      <MicOff className="h-5 w-5 sm:h-5 sm:w-5" />
+                    </>
                   ) : (
                     <Mic className="h-5 w-5 sm:h-5 sm:w-5" />
                   )}
@@ -629,46 +1036,30 @@ function EditorContent() {
               <div className="bg-purple-50/80 p-4 sm:p-5 border-b border-purple-100 flex justify-between items-center">
                 <div className="flex items-center gap-2 flex-grow">
                   <Pill className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500 flex-shrink-0" />
-                  <input
-                    type="text"
-                    value={med.nameofmedicine}
-                    onChange={(e) =>
-                      handleChange(
-                        "prescribe_meds",
-                        index,
-                        e.target.value,
-                        "nameofmedicine"
-                      )
-                    }
-                    placeholder="Enter medication name"
-                    className="w-full p-2 sm:p-2.5 bg-white border border-purple-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-sm"
-                  />
-                  <button
-                    onClick={() =>
-                      toggleListening("prescribe_meds", index, "nameofmedicine")
-                    }
-                    className={`p-2 ${
-                      isListening[`prescribe_meds-${index}-nameofmedicine`]
-                        ? "bg-purple-200 text-purple-600"
-                        : "bg-white text-gray-400 hover:text-purple-400 hover:bg-purple-50"
-                    } rounded-full transition-all duration-200 flex-shrink-0 shadow-sm border border-purple-100`}
-                    title={
-                      isListening[`prescribe_meds-${index}-nameofmedicine`]
-                        ? "Stop voice input"
-                        : "Start voice input"
-                    }
-                    aria-label={
-                      isListening[`prescribe_meds-${index}-nameofmedicine`]
-                        ? "Stop voice input"
-                        : "Start voice input"
-                    }
-                  >
-                    {isListening[`prescribe_meds-${index}-nameofmedicine`] ? (
-                      <XCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                    ) : (
-                      <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <div className="relative w-full">
+                    <input
+                      type="text"
+                      value={med.nameofmedicine}
+                      onChange={(e) =>
+                        handleChange(
+                          "prescribe_meds",
+                          index,
+                          e.target.value,
+                          "nameofmedicine"
+                        )
+                      }
+                      placeholder="Enter medication name"
+                      className="w-full p-2 sm:p-2.5 bg-white border border-purple-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-200 text-sm sm:text-base shadow-sm"
+                    />
+                    {isListening[`prescribe_meds-${index}-nameofmedicine`] && (
+                      <div className="absolute top-0 right-0 mt-1 mr-1">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium animate-pulse">
+                          <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                          Recording
+                        </span>
+                      </div>
                     )}
-                  </button>
+                  </div>
                 </div>
 
                 {visitData.prescribe_meds.length > 1 && (
@@ -920,23 +1311,37 @@ function EditorContent() {
             Extra Prescriptions
           </h2>
           <div className="mb-3 sm:mb-4 group animate-fade-in flex items-start gap-2 sm:gap-3">
-            <textarea
-              value={visitData.extraPrescriptions || ""}
-              onChange={(e) =>
-                setVisitData((prev) => ({
-                  ...prev!,
-                  extraPrescriptions: e.target.value,
-                }))
-              }
-              placeholder="Enter any additional prescriptions or instructions not covered in the medication section..."
-              className="w-full p-3.5 sm:p-4 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all duration-200 hover:border-orange-200 text-sm sm:text-base shadow-sm"
-              rows={4}
-            />
+            <div className="relative w-full">
+              <textarea
+                value={visitData.extraPrescriptions || ""}
+                onChange={(e) =>
+                  setVisitData((prev) => ({
+                    ...prev!,
+                    extraPrescriptions: e.target.value,
+                  }))
+                }
+                placeholder="Enter any additional prescriptions or instructions not covered in the medication section..."
+                className={`w-full p-3.5 sm:p-4 bg-white border ${
+                  isListening[`extraPrescriptions-0`]
+                    ? "border-orange-300 focus:ring-orange-200 bg-orange-50/10"
+                    : "border-gray-200 focus:ring-orange-400"
+                } rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 hover:border-orange-200 text-sm sm:text-base shadow-sm`}
+                rows={4}
+              />
+              {isListening[`extraPrescriptions-0`] && (
+                <div className="absolute top-0 right-0 mt-1 mr-1">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium animate-pulse">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                    Recording
+                  </span>
+                </div>
+              )}
+            </div>
             <button
               onClick={() => toggleListening("extraPrescriptions", 0)}
-              className={`p-2.5 ${
+              className={`p-2.5 relative ${
                 isListening[`extraPrescriptions-0`]
-                  ? "bg-orange-50 text-orange-500"
+                  ? "bg-orange-100 text-orange-500"
                   : "text-gray-400 hover:text-orange-400 hover:bg-orange-50"
               } rounded-full transition-all duration-200 flex-shrink-0 shadow-sm mt-1`}
               title={
@@ -951,7 +1356,14 @@ function EditorContent() {
               }
             >
               {isListening[`extraPrescriptions-0`] ? (
-                <XCircle className="h-5 w-5 sm:h-5 sm:w-5" />
+                <>
+                  <div className="absolute -left-1 -top-1">
+                    {wordDetected[`extraPrescriptions-0`] && (
+                      <div className="h-2 w-2 rounded-full bg-green-500 animate-ping opacity-75" />
+                    )}
+                  </div>
+                  <MicOff className="h-5 w-5 sm:h-5 sm:w-5" />
+                </>
               ) : (
                 <Mic className="h-5 w-5 sm:h-5 sm:w-5" />
               )}
@@ -1084,13 +1496,5 @@ const EditorPage = () => {
     </Suspense>
   );
 };
-
-// Add TypeScript declarations for the Web Speech API
-declare global {
-  interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
-  }
-}
 
 export default EditorPage;
